@@ -1,0 +1,28 @@
+Force,Urban_Rural,Crime_Type,Count,Rate_Per_1000
+Metropolitan Police,Urban,Violence,29986,320
+Metropolitan Police,Urban,Anti-Social Behaviour,16646,178
+Metropolitan Police,Urban,Criminal Damage,11288,120
+Metropolitan Police,Urban,Other Theft,7897,84
+Metropolitan Police,Urban,Public Order,7812,83
+Metropolitan Police,Urban,Vehicle Crime,6000,64
+Metropolitan Police,Urban,Burglary,4789,51
+Metropolitan Police,Urban,Shoplifting,3632,39
+Metropolitan Police,Urban,Drugs,2123,23
+Avon and Somerset,Mixed,Violence,6334,491
+Avon and Somerset,Mixed,Anti-Social Behaviour,1804,140
+Avon and Somerset,Mixed,Public Order,1338,104
+Avon and Somerset,Mixed,Shoplifting,1258,98
+Avon and Somerset,Mixed,Other Theft,1023,79
+Avon and Somerset,Mixed,Criminal Damage,992,77
+Avon and Somerset,Mixed,Vehicle Crime,780,61
+Avon and Somerset,Mixed,Burglary,651,50
+Avon and Somerset,Mixed,Drugs,289,22
+Northern Ireland,Rural,Violence,2145,386
+Northern Ireland,Rural,Anti-Social Behaviour,843,152
+Northern Ireland,Rural,Other Theft,567,102
+Northern Ireland,Rural,Public Order,456,82
+Northern Ireland,Rural,Criminal Damage,423,76
+Northern Ireland,Rural,Vehicle Crime,345,62
+Northern Ireland,Rural,Burglary,289,52
+Northern Ireland,Rural,Shoplifting,234,42
+Northern Ireland,Rural,Drugs,178,32
