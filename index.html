@@ -12,6 +12,19 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 canvas { touch-action: none; }
 .screen { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
 .screen.active { display: flex; }
+/* Game Intro Popup */
+#gameIntroOverlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; }
+#gameIntroOverlay.active { display:flex; }
+#gameIntroBox { background:#1a1a2e; border:4px solid #f5a623; box-shadow:0 0 30px rgba(245,166,35,0.5), inset 0 0 60px rgba(0,0,0,0.5); border-radius:4px; padding:28px 32px; max-width:480px; width:90%; text-align:center; position:relative; image-rendering:pixelated; animation: introPopIn 0.35s ease-out; }
+@keyframes introPopIn { 0% { transform:scale(0.5); opacity:0; } 60% { transform:scale(1.06); } 100% { transform:scale(1); opacity:1; } }
+#gameIntroBox .gi-icon { font-size:3.2em; margin-bottom:10px; filter:drop-shadow(0 0 10px rgba(245,166,35,0.6)); }
+#gameIntroBox .gi-title { font-family:'Press Start 2P',monospace; font-size:1.15em; color:#f5a623; text-shadow:0 0 10px rgba(245,166,35,0.5); margin-bottom:14px; }
+#gameIntroBox .gi-desc { font-family:'Press Start 2P',monospace; font-size:0.52em; color:#ccc; line-height:1.9; margin-bottom:10px; }
+#gameIntroBox .gi-win { font-family:'Press Start 2P',monospace; font-size:0.52em; color:#2ecc71; line-height:1.9; margin-bottom:16px; }
+#gameIntroBox .gi-luck { font-family:'Press Start 2P',monospace; font-size:0.85em; color:#e94560; animation:luckBlink 0.8s ease-in-out infinite; margin-bottom:18px; text-shadow:0 0 12px rgba(233,69,96,0.6); }
+@keyframes luckBlink { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+#gameIntroBox .gi-btn { font-family:'Press Start 2P',monospace; font-size:0.7em; background:linear-gradient(180deg,#f5a623,#e67e22); color:#1a1a2e; border:none; padding:12px 36px; cursor:pointer; border-radius:3px; box-shadow:0 4px 15px rgba(245,166,35,0.4); transition:transform 0.15s,box-shadow 0.15s; }
+#gameIntroBox .gi-btn:hover { transform:scale(1.08); box-shadow:0 6px 25px rgba(245,166,35,0.6); }
 
 /* Setup Screen — 80s Retro Arcade */
 #setupScreen { flex-direction: column; align-items: center; justify-content: flex-start; background: #0a0a1a; overflow-y: auto; padding: 20px 0; position: relative; }
@@ -339,7 +352,7 @@ canvas { touch-action: none; }
 /* Balloons */
 #balloonScreen { flex-direction: column; align-items: center; background: #87CEEB; position: relative; overflow: hidden; }
 #balloonStatus { font-size: 1.8em; margin-top: 20px; z-index: 2; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3); color: #333; }
-#balloonArea { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; z-index: 2; width: 100%; padding-bottom: 0; overflow: hidden; }
+#balloonArea { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; width: 100%; padding-bottom: 0; overflow: hidden; }
 #balloonSvg { width: 100%; flex: 1; min-height: 0; }
 .balloon-back { position: absolute; top: 15px; left: 15px; z-index: 10; }
 #burstCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
@@ -533,6 +546,7 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 <button id="muteBtn" onclick="toggleMute()" title="Toggle music">🔊</button>
 
 <!-- Setup Screen -->
+<div id="gameIntroOverlay"><div id="gameIntroBox"></div></div>
 <div id="setupScreen" class="screen active">
   <div class="retro-grid"></div>
   <div class="scanlines"></div>
@@ -736,7 +750,7 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
   <div id="balloonStatus"></div>
   <div id="balloonArea">
     <canvas id="burstCanvas"></canvas>
-    <svg id="balloonSvg" viewBox="0 0 600 420" preserveAspectRatio="xMidYMid meet">
+    <svg id="balloonSvg" viewBox="0 0 600 420" preserveAspectRatio="xMidYMid meet" style="max-height:100%;width:100%;display:block;">
       <!-- Balloons generated dynamically -->
     </svg>
   </div>
@@ -790,8 +804,76 @@ let playersPicked = 1;
 const COLORS = ['#e94560','#f5a623','#3498db','#2ecc71','#9b59b6','#1abc9c','#e67e22','#e74c3c','#00bcd4','#ff5722','#8bc34a','#ffc107','#673ab7','#03a9f4','#ff4081','#cddc39','#ff6b6b','#48dbfb','#feca57','#1dd1a1','#ee5a24','#0abde3','#c44569','#574b90','#f78fb3','#3dc1d3','#e77f67','#786fa6','#63cdda','#cf6a87','#596275','#f19066'];
 const BALLOON_COLORS = ['#e94560','#f5a623','#3498db','#2ecc71','#9b59b6','#ff69b4','#ff6347','#40e0d0','#00bcd4','#ff5722','#8bc34a','#ffc107','#673ab7','#03a9f4','#ff4081','#cddc39'];
 let currentGameCleanup = null;
+
+const GAME_INTROS = {
+  marble: {
+    icon: '\u26AA', title: 'MARBLE RACE',
+    desc: 'Your marbles hurtle down a winding track full of twists and turns! Collisions, chaos, and speed await!',
+    win: 'The first marble to cross the finish line is the winner!'
+  },
+  battle: {
+    icon: '\u2694\uFE0F', title: 'BATTLE ROYALE',
+    desc: 'Warriors with unique weapons clash in an epic arena showdown! Swords swing, arrows fly, and only the strongest survive!',
+    win: 'The last fighter standing is the winner!'
+  },
+  balloon: {
+    icon: '\u{1F388}', title: 'BALLOON BURST',
+    desc: 'Your balloon is being inflated! It grows bigger... and bigger... and BIGGER! The pressure is building up inside \u2014 will yours hold?',
+    win: 'The balloon that inflates the largest without popping wins! Try not to pop!'
+  },
+  engulf: {
+    icon: '\u2B24', title: 'ENGULF',
+    desc: 'Shapes drift around the arena \u2014 bigger shapes consume smaller ones! Grow or be eaten!',
+    win: 'The last shape remaining is the winner!'
+  },
+  golf: {
+    icon: '\u26F3', title: 'GOLF',
+    desc: 'All balls are smacked toward the hole! Watch out for water hazards \u2014 land in a lake and you\'re out!',
+    win: 'The ball closest to the hole wins!'
+  },
+  ships: {
+    icon: '\u2693', title: 'BATTLESHIPS',
+    desc: 'Ships set sail across dangerous waters while cannonballs rain from the sky! Dodge or sink!',
+    win: 'The last ship still afloat is the winner!'
+  },
+  namepicker: {
+    icon: '\u2728', title: 'NAME PICKER',
+    desc: 'Names swirl in a cosmic vortex, spinning faster and faster! Who will the universe choose?',
+    win: 'One name will be randomly plucked from the vortex!'
+  },
+  wheel: {
+    icon: '\u{1F3A1}', title: 'WHEEL OF DESTINY',
+    desc: 'The mighty wheel spins with everyone\'s name! Round and round it goes\u2026 where it stops, nobody knows!',
+    win: 'Wherever the wheel lands \u2014 that\'s our winner!'
+  },
+  horses: {
+    icon: '\u{1F3C7}', title: 'HORSE RACE',
+    desc: 'Horses thunder down the track! Leap over hedges, sprint for the finish, and hold on tight for the home straight!',
+    win: 'The first horse past the finish line wins!'
+  }
+};
+
+function showGameIntro(gameId, onClose) {
+  const info = GAME_INTROS[gameId];
+  if (!info) { onClose(); return; }
+  const overlay = document.getElementById('gameIntroOverlay');
+  const box = document.getElementById('gameIntroBox');
+  box.innerHTML = `
+    <div class="gi-icon">${info.icon}</div>
+    <div class="gi-title">${info.title}</div>
+    <div class="gi-desc">${info.desc}</div>
+    <div class="gi-win">${info.win}</div>
+    <div class="gi-luck">GOOD LUCK!</div>
+    <button class="gi-btn" id="giStartBtn">\u25B6 START!</button>
+  `;
+  overlay.classList.add('active');
+  document.getElementById('giStartBtn').addEventListener('click', () => {
+    overlay.classList.remove('active');
+    onClose();
+  }, { once: true });
+}
 let lastWinningMoment = null; // data URL of the winning moment screenshot
-const SINGLE_PICK_ONLY = ['wheel', 'namepicker'];
+const SINGLE_PICK_ONLY = ['wheel', 'namepicker', 'engulf', 'horses'];
 const LARGE_GROUP_GAMES = ['golf', 'wheel']; // Only these available for 17+ players
 let playerRangeHigh = false; // false = 1-16, true = 17-32
 
@@ -1145,40 +1227,133 @@ function playNamePickerMusic() {
   scheduleLoop(t + 0.1);
 }
 
-// ---- THEME: Horses (galloping rhythm) ----
+// ---- THEME: Horses (dramatic & intense) ----
 function playHorsesMusic() {
   initAudio();
   if (musicPlaying === 'horses') return;
   stopMusic();
   musicPlaying = 'horses';
   const t = audioCtx.currentTime;
-  const bpm = 140; const beat = 60 / bpm;
+  const bpm = 175;
+  const beat = 60 / bpm; // ~0.343s per beat
+
+  function timpani(bt, vol, freq) {
+    const len = Math.floor(audioCtx.sampleRate * 0.22);
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let j = 0; j < len; j++) d[j] = (Math.random() * 2 - 1) * Math.exp(-j / (audioCtx.sampleRate * 0.045));
+    const src = audioCtx.createBufferSource(); src.buffer = buf;
+    const filt = audioCtx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = freq || 180;
+    const env = audioCtx.createGain();
+    env.gain.setValueAtTime(vol, bt);
+    env.gain.exponentialRampToValueAtTime(0.001, bt + 0.2);
+    src.connect(filt); filt.connect(env); env.connect(musicGain);
+    src.start(bt); src.stop(bt + 0.25);
+    musicNodes.push(src);
+  }
+
+  function snare(bt) {
+    const len = Math.floor(audioCtx.sampleRate * 0.09);
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let j = 0; j < len; j++) d[j] = (Math.random() * 2 - 1) * Math.exp(-j / (audioCtx.sampleRate * 0.02));
+    const src = audioCtx.createBufferSource(); src.buffer = buf;
+    const filt = audioCtx.createBiquadFilter(); filt.type = 'bandpass'; filt.frequency.value = 2200; filt.Q.value = 0.9;
+    const env = audioCtx.createGain();
+    env.gain.setValueAtTime(0.18, bt);
+    env.gain.exponentialRampToValueAtTime(0.001, bt + 0.08);
+    src.connect(filt); filt.connect(env); env.connect(musicGain);
+    src.start(bt); src.stop(bt + 0.1);
+    musicNodes.push(src);
+  }
+
   function scheduleLoop(startT) {
     if (musicPlaying !== 'horses') return;
-    // Galloping bass (clip-clop pattern: short-short-long)
-    for (let i = 0; i < 8; i++) {
+    const nf = noteFreq;
+
+    // === TIMPANI — every beat, heavy accents on 1 and 9 ===
+    for (let i = 0; i < 16; i++) {
       const bt = startT + i * beat;
-      // Hoof hits: da-da-DUM da-da-DUM
-      playNote(noteFreq('G', 2), bt, 0.06, 'triangle', 0.08);
-      playNote(noteFreq('G', 2), bt + beat * 0.33, 0.06, 'triangle', 0.06);
-      playNote(noteFreq('D', 2), bt + beat * 0.66, 0.1, 'triangle', 0.1);
+      const vol = i % 8 === 0 ? 0.32 : i % 4 === 0 ? 0.20 : 0.11;
+      const freq = i % 8 === 0 ? 220 : 160;
+      timpani(bt, vol, freq);
     }
-    // Exciting melody over top
-    const melody = [
-      ['D',4,0], ['F#',4,1], ['A',4,2], ['D',5,3],
-      ['A',4,4], ['F#',4,5], ['D',4,6], ['E',4,7]
+
+    // === SNARE — backbeats on 4, 8, 12, 16 ===
+    [3, 7, 11, 15].forEach(i => snare(startT + i * beat));
+
+    // === DRIVING BASS LINE — sawtooth, D minor (i–i–VI–VII) ===
+    // Each note is an eighth-note hit for maximum propulsion
+    const bassPattern = [
+      [nf('D',2),0],[nf('D',2),1],[nf('D',2),2],[nf('D',2),3],
+      [nf('D',2),4],[nf('D',2),5],[nf('D',2),6],[nf('D',2),7],
+      [nf('A#',2),8],[nf('A#',2),9],[nf('A#',2),10],[nf('A#',2),11],
+      [nf('C',3),12],[nf('C',3),13],[nf('A',2),14],[nf('A',2),15],
     ];
-    melody.forEach(([n,o,i]) => {
-      playNote(noteFreq(n, o), startT + i * beat, beat * 0.8, 'square', 0.04);
+    bassPattern.forEach(([f, b]) =>
+      playNote(f, startT + b * beat, beat * 0.42, 'sawtooth', 0.15)
+    );
+
+    // === BRASS CHORD STABS — sawtooth, every 2 beats ===
+    // Dm | Dm | A#M | CM | CM | CM | Am | A (creates mounting tension)
+    const stabs = [
+      { fs: [nf('D',3), nf('F',3), nf('A',3)],        b: 0  },
+      { fs: [nf('D',3), nf('F',3), nf('A',3)],        b: 2  },
+      { fs: [nf('A#',2), nf('D',3), nf('F',3)],       b: 4  },
+      { fs: [nf('A#',2), nf('D',3), nf('F',3)],       b: 6  },
+      { fs: [nf('C',3), nf('G',3), nf('C',4)],        b: 8  },
+      { fs: [nf('C',3), nf('E',3), nf('G',3)],        b: 10 },
+      { fs: [nf('A',2), nf('E',3), nf('A',3)],        b: 12 },
+      { fs: [nf('A',2), nf('C#',3), nf('E',3)],       b: 14 },
+    ];
+    stabs.forEach(({ fs, b }) => {
+      const bt = startT + b * beat;
+      fs.forEach(f => playNote(f, bt, beat * 1.7, 'sawtooth', 0.068));
     });
-    // Chord stabs on beats 1 and 5
-    playNote(noteFreq('D', 3), startT, beat * 1.5, 'sine', 0.05);
-    playNote(noteFreq('A', 3), startT + 4 * beat, beat * 1.5, 'sine', 0.05);
-    const dur = 8 * beat;
-    const tid = setTimeout(() => scheduleLoop(startT + dur), (dur - 1) * 1000);
+
+    // === DRAMATIC LEAD MELODY — triangle (trumpet-like) ===
+    // Rising fanfare phrase, climax, then dominant tension
+    const melody = [
+      [nf('D',4),  0,   1  ],
+      [nf('F',4),  1,   0.5],
+      [nf('A',4),  1.5, 0.5],
+      [nf('D',5),  2,   1.5],
+      [nf('C',5),  3.5, 0.5],
+      [nf('A#',4), 4,   1  ],
+      [nf('A',4),  5,   0.75],
+      [nf('G',4),  5.75,0.25],
+      [nf('F',4),  6,   2  ],
+      [nf('A#',4), 8,   1  ],
+      [nf('D',5),  9,   0.5],
+      [nf('F',5),  9.5, 0.5],
+      [nf('A#',5), 10,  1.5],
+      [nf('A',5),  11.5,0.5],
+      [nf('A',5),  12,  0.5],
+      [nf('E',5),  12.5,0.5],
+      [nf('C#',5), 13,  1  ],
+      [nf('D',5),  14,  2  ],
+    ];
+    melody.forEach(([f, b, dur]) =>
+      playNote(f, startT + b * beat, dur * beat * 0.88, 'triangle', 0.10)
+    );
+
+    // === HARMONY — a 3rd below the melody for fullness ===
+    const harmony = [
+      [nf('A#',3), 0,  2], [nf('F',4),  2,  2],
+      [nf('F',3),  4,  2], [nf('D',4),  6,  2],
+      [nf('G',4),  8,  2], [nf('F',4),  10, 2],
+      [nf('E',4),  12, 2], [nf('F',4),  14, 2],
+    ];
+    harmony.forEach(([f, b, dur]) =>
+      playNote(f, startT + b * beat, dur * beat * 0.75, 'triangle', 0.045)
+    );
+
+    const dur = 16 * beat;
+    const tid = setTimeout(() => scheduleLoop(startT + dur), (dur - 0.4) * 1000);
     musicNodes.push({ stop: () => clearTimeout(tid), disconnect: () => {} });
   }
-  scheduleLoop(t + 0.1);
+
+  scheduleLoop(t + 0.05);
 }
 
 // ---- THEME: Winner (triumphant fanfare) ----
@@ -1627,6 +1802,40 @@ function sfx(type) {
     src.connect(g2); g2.connect(sfxGain);
     src.start(t); src.stop(t + 0.2);
   }
+  else if (type === 'gallop') {
+    // Four hoof beats in gallop rhythm — clopclopclop-DUM
+    const offsets = [0, 0.055, 0.11, 0.19];
+    offsets.forEach((off, i) => {
+      const buf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.045), audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < d.length; j++) d[j] = (Math.random() * 2 - 1) * Math.exp(-j / (audioCtx.sampleRate * 0.012));
+      const src = audioCtx.createBufferSource(); src.buffer = buf;
+      const filt = audioCtx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 350;
+      const g = audioCtx.createGain();
+      const vol = i === 3 ? 0.09 : 0.055; // accent on last beat
+      g.gain.setValueAtTime(vol, t + off);
+      g.gain.exponentialRampToValueAtTime(0.001, t + off + 0.045);
+      src.connect(filt); filt.connect(g); g.connect(audioCtx.destination);
+      src.start(t + off); src.stop(t + off + 0.05);
+    });
+  }
+  else if (type === 'gallop-fast') {
+    // Faster, louder, higher pitched — home straight intensity
+    const offsets = [0, 0.04, 0.08, 0.13];
+    offsets.forEach((off, i) => {
+      const buf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.04), audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < d.length; j++) d[j] = (Math.random() * 2 - 1) * Math.exp(-j / (audioCtx.sampleRate * 0.01));
+      const src = audioCtx.createBufferSource(); src.buffer = buf;
+      const filt = audioCtx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 550;
+      const g = audioCtx.createGain();
+      const vol = i === 3 ? 0.14 : 0.09;
+      g.gain.setValueAtTime(vol, t + off);
+      g.gain.exponentialRampToValueAtTime(0.001, t + off + 0.04);
+      src.connect(filt); filt.connect(g); g.connect(audioCtx.destination);
+      src.start(t + off); src.stop(t + off + 0.045);
+    });
+  }
   else if (type === 'countdown-beep') {
     const o = audioCtx.createOscillator();
     o.type = 'sine';
@@ -1682,14 +1891,14 @@ document.addEventListener('click', (e) => {
 
 const GAMES = [
   {id:'marble', name:'Marble Race', icon:'\u26AA'},
-  {id:'battle', name:'Battle', icon:'\u2694'},
-  {id:'balloon', name:'Balloons', icon:'\u{1F388}'},
-  {id:'engulf', name:'Engulf', icon:'\u2B24'},
-  {id:'golf', name:'Golf', icon:'\u26F3'},
+  {id:'horses', name:'Horse Race', icon:'\u{1F3C7}'},
   {id:'ships', name:'Ships', icon:'\u2693'},
+  {id:'battle', name:'Battle', icon:'\u2694'},
+  {id:'engulf', name:'Engulf', icon:'\u2B24'},
+  {id:'balloon', name:'Balloons', icon:'\u{1F388}'},
+  {id:'golf', name:'Golf', icon:'\u26F3'},
   {id:'namepicker', name:'Name Picker', icon:'\u2728'},
   {id:'wheel', name:'Spinning Wheel', icon:'\u{1F3A1}'},
-  {id:'horses', name:'Horse Race', icon:'\u{1F3C7}'}
 ];
 let enabledGames = GAMES.map(g => g.id);
 
@@ -1742,11 +1951,7 @@ function goToGameSelect() {
   // Build available games and show game select screen
   beltGames = getAvailableGames();
   if (beltGames.length === 0) beltGames = [...GAMES];
-  // Start centered on recommended game
-  const pCount = players.length || 2;
-  const rec = getRecommendedGame(pCount);
-  const recIdx = beltGames.findIndex(g => g.id === rec);
-  beltCurrentIdx = recIdx >= 0 ? recIdx : 0;
+  beltCurrentIdx = 0;
   clawAnimating = false;
   beltAnimating = false;
   // Reset claw visuals
@@ -1982,11 +2187,8 @@ function updateCDDisplay() {
   track.innerHTML = '';
   const positions = [-2, -1, 0, 1, 2];
   const classes = ['far', 'side', 'center', 'side', 'far'];
-  const recGame = getRecommendedGame(Math.max(2, parseInt(playerCountInput.value) || 2));
-
   positions.forEach((offset, i) => {
     const game = getWrappedGame(offset);
-    const isRec = game.id === recGame;
     const cdCase = document.createElement('div');
     cdCase.className = `cd-case ${classes[i]}`;
     cdCase.dataset.gameId = game.id;
@@ -2006,7 +2208,6 @@ function updateCDDisplay() {
         </div>
         <div class="cd-case-sheen"></div>
         <div class="cd-case-inner-edge"></div>
-        ${isRec ? '<div class="cd-rec-badge">★ REC</div>' : ''}
       </div>
     `;
     if (offset === 0) {
@@ -2347,7 +2548,6 @@ function submitPlayers() {
 
 function startGame(game) {
   resetGame();
-  playGameMusic(game);
   if (game === 'wheel') initWheel();
   else if (game === 'ships') initShips();
   else if (game === 'marble') initMarble();
@@ -2612,7 +2812,9 @@ function showWinner(name) {
 function startFireworks() {
   const canvas = document.getElementById('winnerCanvas');
   const ctx = canvas.getContext('2d');
-  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  // Use actual rendered element size so canvas fills the winner screen exactly on all devices
+  canvas.width = canvas.offsetWidth || window.innerWidth;
+  canvas.height = canvas.offsetHeight || window.innerHeight;
   const particles = [];
   const rockets = [];
 
@@ -2669,6 +2871,9 @@ function initWheel() {
   wheelAngle = 0; wheelSpinning = false;
   document.getElementById('spinBtn').disabled = false;
   drawWheel();
+  showGameIntro('wheel', () => {
+    playGameMusic('wheel');
+  });
 }
 
 function drawWheel() {
@@ -2785,6 +2990,9 @@ function initShips() {
   cannonCooldown = false;
   document.getElementById('cannonWholeGroup').classList.remove('cooldown');
   currentGameCleanup = cleanupShips;
+  showGameIntro('ships', () => {
+    playGameMusic('ships');
+  });
 }
 
 function cleanupShips() {
@@ -2982,6 +3190,10 @@ function initMarble() {
     assignDiv.appendChild(d);
   });
   currentGameCleanup = cleanupMarble;
+  showGameIntro('marble', () => {
+    playGameMusic('marble');
+    startMarbleRace();
+  });
 }
 
 function cleanupMarble() {
@@ -3801,7 +4013,7 @@ function initBalloon() {
   const vbW = 600;
   const vbH = 420;
   svg.setAttribute('viewBox', `0 0 ${vbW} ${vbH}`);
-  svg.setAttribute('preserveAspectRatio', 'xMidYMax meet');
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
   const spacing = vbW / n;
   const fontSize = n > 8 ? 9 : n > 5 ? 11 : 14;
@@ -3863,9 +4075,12 @@ function initBalloon() {
     flashText: null, flashStart: 0, flashColor: '#fff', flashName: ''
   };
   document.getElementById('balloonStatus').textContent = '';
-  balloonState.startTime = performance.now();
-  balloonState.raf = requestAnimationFrame(balloonGameLoop);
   currentGameCleanup = cleanupBalloon;
+  showGameIntro('balloon', () => {
+    playGameMusic('balloon');
+    balloonState.startTime = performance.now();
+    balloonState.raf = requestAnimationFrame(balloonGameLoop);
+  });
 }
 
 function cleanupBalloon() {
@@ -4094,14 +4309,39 @@ function initGolf() {
     stopped: false
   }));
 
+  // Generate 1–2 lakes (avoid hole and spawn area)
+  const lakes = [];
+  const numLakes = 1 + Math.floor(Math.random() * 2);
+  for (let attempts = 0; attempts < 80 && lakes.length < numLakes; attempts++) {
+    const lx = W * 0.1 + Math.random() * W * 0.8;
+    const ly = H * 0.08 + Math.random() * H * 0.65;
+    const lrx = 55 + Math.random() * 55;
+    const lry = 38 + Math.random() * 35;
+    if (Math.hypot(lx - holeX, ly - holeY) < 120) continue;
+    if (ly > H * 0.8) continue;
+    // Avoid overlapping existing lakes
+    if (lakes.some(l => Math.hypot(lx - l.x, ly - l.y) < l.rx + lrx + 20)) continue;
+    lakes.push({ x: lx, y: ly, rx: lrx, ry: lry });
+  }
+
   golfState = {
-    phase: 'swing', balls, holeX, holeY, holeR, ballR,
-    swingStart: performance.now(), raf: null, winner: -1, doneTime: 0
+    phase: 'parade', balls, holeX, holeY, holeR, ballR,
+    paradeStart: performance.now(),
+    swingStart: 0, raf: null, winner: -1, doneTime: 0,
+    lakes
   };
 
   const ad = document.getElementById('golfAssignments');
-  ad.innerHTML = '<h4 style="color:#4CAF50;margin-bottom:6px">Players</h4>' +
-    players.map((p, i) => `<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><div style="width:14px;height:14px;border-radius:50%;background:${COLORS[i]};border:2px solid rgba(255,255,255,0.5)"></div><span style="color:#fff">${p}</span></div>`).join('');
+  ad.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:6px 4px">` +
+    players.map((p, i) => `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+        <div style="width:30px;height:30px;border-radius:50%;
+          background:radial-gradient(circle at 38% 35%, #ffffff, ${COLORS[i]} 55%, ${COLORS[i]});
+          border:2px solid rgba(255,255,255,0.5);
+          box-shadow:0 3px 10px rgba(0,0,0,0.5),inset 0 -3px 5px rgba(0,0,0,0.25)"></div>
+        <span style="color:#fff;font-size:0.62em;font-weight:bold;text-shadow:0 1px 4px rgba(0,0,0,0.9);
+          max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center">${p}</span>
+      </div>`).join('') + `</div>`;
   document.getElementById('golfStatus').textContent = '';
 
   currentGameCleanup = () => {
@@ -4136,6 +4376,73 @@ function initGolf() {
       if ((i / 60) % 2 === 0) ctx.fillRect(i, 0, 30, H);
     }
 
+    // Draw lakes
+    g.lakes.forEach(lake => {
+      ctx.save();
+      // Muddy shore edge
+      ctx.beginPath();
+      ctx.ellipse(lake.x, lake.y, lake.rx + 8, lake.ry + 6, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#5D4037';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(lake.x, lake.y, lake.rx + 4, lake.ry + 3, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#6D5040';
+      ctx.fill();
+
+      // Water body — deep blue gradient
+      const lGrad = ctx.createRadialGradient(lake.x - lake.rx * 0.15, lake.y - lake.ry * 0.2, 5, lake.x, lake.y, Math.max(lake.rx, lake.ry));
+      lGrad.addColorStop(0, '#5C9CE6');
+      lGrad.addColorStop(0.35, '#2979B8');
+      lGrad.addColorStop(0.7, '#1565A0');
+      lGrad.addColorStop(1, '#0D3E6E');
+      ctx.beginPath();
+      ctx.ellipse(lake.x, lake.y, lake.rx, lake.ry, 0, 0, Math.PI * 2);
+      ctx.fillStyle = lGrad;
+      ctx.fill();
+
+      // Animated ripple rings
+      const now = t * 0.001;
+      for (let r = 0; r < 3; r++) {
+        const ripplePhase = (now * 0.5 + r * 1.2) % 3;
+        const rippleScale = 0.15 + ripplePhase * 0.22;
+        const rippleAlpha = Math.max(0, 0.2 - ripplePhase * 0.07);
+        ctx.beginPath();
+        ctx.ellipse(lake.x, lake.y, lake.rx * rippleScale, lake.ry * rippleScale, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(180,210,240,${rippleAlpha})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Light reflection streak (moves slowly)
+      const shimX = lake.x - lake.rx * 0.2 + Math.sin(now * 0.3) * lake.rx * 0.08;
+      const shimY = lake.y - lake.ry * 0.25 + Math.cos(now * 0.2) * lake.ry * 0.05;
+      ctx.beginPath();
+      ctx.ellipse(shimX, shimY, lake.rx * 0.28, lake.ry * 0.10, -0.25, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.fill();
+      // Smaller highlight
+      ctx.beginPath();
+      ctx.ellipse(shimX - lake.rx * 0.06, shimY - lake.ry * 0.04, lake.rx * 0.10, lake.ry * 0.04, -0.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.32)';
+      ctx.fill();
+
+      // Reeds along edge
+      ctx.strokeStyle = '#33691E';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 6; i++) {
+        const ang = -0.6 + i * 0.22;
+        const rx = lake.x + Math.cos(ang) * (lake.rx + 2);
+        const ry = lake.y + Math.sin(ang) * (lake.ry + 2);
+        const sway = Math.sin(now * 1.5 + i * 0.8) * 3;
+        ctx.beginPath();
+        ctx.moveTo(rx, ry);
+        ctx.quadraticCurveTo(rx + sway, ry - 16, rx + sway * 1.3, ry - 26);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    });
+
     // Draw hole
     ctx.beginPath();
     ctx.arc(g.holeX, g.holeY, g.holeR + 4, 0, Math.PI * 2);
@@ -4163,6 +4470,75 @@ function initGolf() {
     ctx.closePath();
     ctx.fillStyle = '#e94560';
     ctx.fill();
+
+    // Parade phase — balls glide across screen to show players their colours
+    if (g.phase === 'parade') {
+      const paradeElapsed = (t - g.paradeStart) / 1000;
+      const paradeDuration = 7; // seconds
+      const n = g.balls.length;
+      const spacing = (W + 100) / n;
+
+      g.balls.forEach((b, i) => {
+        // Each ball starts off-screen left, glides across to right, staggered
+        const delay = i * 0.12;
+        const ballT = Math.max(0, paradeElapsed - delay) / (paradeDuration - delay * 0.5);
+        const eased = Math.min(1, ballT);
+        // Ease-in-out cubic
+        const ease = eased < 0.5 ? 4 * eased * eased * eased : 1 - Math.pow(-2 * eased + 2, 3) / 2;
+        const px = -40 + ease * (W + 80);
+        const py = H * 0.45 + Math.sin(ease * Math.PI) * -40 + (i % 2 === 0 ? -12 : 12);
+
+        // Shadow
+        ctx.beginPath();
+        ctx.ellipse(px + 2, py + 2, ballR * 1.3, ballR * 0.9, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fill();
+        // Ball
+        ctx.beginPath();
+        ctx.arc(px, py, ballR * 1.3, 0, Math.PI * 2);
+        const bGrad = ctx.createRadialGradient(px - 4, py - 4, 1, px, py, ballR * 1.3);
+        bGrad.addColorStop(0, '#fff');
+        bGrad.addColorStop(0.5, b.color);
+        bGrad.addColorStop(1, b.color);
+        ctx.fillStyle = bGrad;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // Name label
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${Math.max(11, Math.min(16, 200 / n))}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(0,0,0,0.9)';
+        ctx.shadowBlur = 5;
+        ctx.fillText(b.name, px, py + ballR * 1.5 + 2);
+        ctx.shadowBlur = 0;
+      });
+
+      // Title
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.min(28, W * 0.04)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur = 8;
+      ctx.fillText('Meet the players...', W / 2, H * 0.18);
+      ctx.shadowBlur = 0;
+
+      if (paradeElapsed > paradeDuration + 0.5) {
+        g.phase = 'swing';
+        g.swingStart = t;
+        // Reset ball positions for swing
+        g.balls.forEach((b, i) => {
+          b.x = W / 2 + (i - g.balls.length / 2) * 25;
+          b.y = H + 20;
+        });
+      }
+
+      g.raf = requestAnimationFrame(frame);
+      return;
+    }
 
     // Swing phase
     if (g.phase === 'swing') {
@@ -4219,6 +4595,18 @@ function initGolf() {
         if (b.x > W - ballR) { b.x = W - ballR; b.vx = -Math.abs(b.vx) * 0.6; }
         if (b.y < ballR) { b.y = ballR; b.vy = Math.abs(b.vy) * 0.6; }
         if (b.y > H - ballR) { b.y = H - ballR; b.vy = -Math.abs(b.vy) * 0.6; }
+        // Lake collision — ball is lost
+        g.lakes.forEach(lake => {
+          const lx = (b.x - lake.x) / lake.rx, ly = (b.y - lake.y) / lake.ry;
+          if (lx*lx + ly*ly < 1 && !b.eliminated) {
+            b.eliminated = true;
+            b.stopped = true;
+            b.vx = 0; b.vy = 0;
+            b.splashTime = t;
+          }
+        });
+
+        if (b.eliminated) return;
         if (Math.abs(b.vx) < 0.08 && Math.abs(b.vy) < 0.08) {
           b.vx = 0; b.vy = 0; b.stopped = true;
         } else { allStopped = false; }
@@ -4251,8 +4639,11 @@ function initGolf() {
 
       if (allStopped) {
         g.phase = 'done';
-        // Sort balls by distance to hole, pick closest N
-        const ranked = g.balls.map((b, i) => ({ idx: i, dist: Math.sqrt((b.x - g.holeX) ** 2 + (b.y - g.holeY) ** 2) }));
+        // Sort non-eliminated balls by distance to hole; fall back to all if all eliminated
+        let ranked = g.balls
+          .map((b, i) => ({ idx: i, dist: Math.sqrt((b.x - g.holeX) ** 2 + (b.y - g.holeY) ** 2), elim: b.eliminated }))
+          .filter(r => !r.elim);
+        if (ranked.length === 0) ranked = g.balls.map((b, i) => ({ idx: i, dist: Math.sqrt((b.x - g.holeX) ** 2 + (b.y - g.holeY) ** 2) }));
         ranked.sort((a, b) => a.dist - b.dist);
         g.winners = ranked.slice(0, playersPicked).map(r => r.idx);
         g.winner = g.winners[0]; // keep for animation compat
@@ -4263,10 +4654,33 @@ function initGolf() {
     // Draw balls
     g.balls.forEach(b => {
       if (b.y > H + 15) return;
+
+      // Splash animation for eliminated balls
+      if (b.eliminated && b.splashTime) {
+        const sp = (t - b.splashTime) / 800;
+        if (sp < 1) {
+          ctx.save();
+          ctx.globalAlpha = 1 - sp;
+          for (let i = 0; i < 6; i++) {
+            const ang = (i / 6) * Math.PI * 2;
+            const dist = sp * 28;
+            ctx.beginPath();
+            ctx.arc(b.x + Math.cos(ang) * dist, b.y + Math.sin(ang) * dist, 3 * (1 - sp), 0, Math.PI * 2);
+            ctx.fillStyle = '#90CAF9';
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+        return;
+      }
+      if (b.eliminated) return;
+
+      // Shadow
       ctx.beginPath();
       ctx.ellipse(b.x + 2, b.y + 2, ballR, ballR * 0.7, 0, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(0,0,0,0.2)';
       ctx.fill();
+      // Ball
       ctx.beginPath();
       ctx.arc(b.x, b.y, ballR, 0, Math.PI * 2);
       const bGrad = ctx.createRadialGradient(b.x - 3, b.y - 3, 1, b.x, b.y, ballR);
@@ -4278,6 +4692,15 @@ function initGolf() {
       ctx.strokeStyle = 'rgba(0,0,0,0.3)';
       ctx.lineWidth = 1;
       ctx.stroke();
+      // Player name label
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.max(9, Math.min(12, 120 / players.length))}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(b.name, b.x, b.y - ballR - 2);
+      ctx.shadowBlur = 0;
     });
 
     // Done: dotted line + winner glow animation
@@ -4360,7 +4783,11 @@ function initGolf() {
     g.raf = requestAnimationFrame(frame);
   }
 
-  golfState.raf = requestAnimationFrame(frame);
+  showGameIntro('golf', () => {
+    playGameMusic('golf');
+    golfState.paradeStart = performance.now();
+    golfState.raf = requestAnimationFrame(frame);
+  });
 }
 
 // ============ GAME 6: BATTLE ============
@@ -5075,7 +5502,10 @@ function initBattle() {
     }
   }
 
-  battleState.raf = requestAnimationFrame(frame);
+  showGameIntro('battle', () => {
+    playGameMusic('battle');
+    battleState.raf = requestAnimationFrame(frame);
+  });
 }
 
 // ============ GAME 7: DICE ============
@@ -5488,7 +5918,10 @@ function initNamePicker() {
   });
 
   currentGameCleanup = cleanupNamePicker;
-  namePickerState.raf = requestAnimationFrame(namePickerLoop);
+  showGameIntro('namepicker', () => {
+    playGameMusic('namepicker');
+    namePickerState.raf = requestAnimationFrame(namePickerLoop);
+  });
 }
 
 function cleanupNamePicker() {
@@ -5742,7 +6175,10 @@ function initEngulf() {
   document.getElementById('engulfStatus').textContent = '';
 
   currentGameCleanup = cleanupEngulf;
-  engulfState.raf = requestAnimationFrame(engulfLoop);
+  showGameIntro('engulf', () => {
+    playGameMusic('engulf');
+    engulfState.raf = requestAnimationFrame(engulfLoop);
+  });
 }
 
 function cleanupEngulf() {
@@ -6172,6 +6608,8 @@ let horsesState = null;
 const HORSE_BROWNS = ['#8B4513','#A0522D','#6B3410','#7B3F00','#5C3317','#8B6914','#704214','#654321','#3E2723','#4E342E','#5D4037','#6D4C41','#795548','#8D6E63','#4A2C2A','#3B1F1B'];
 
 function initHorses() {
+  const hs = document.getElementById('horsesScreen');
+  if (hs) hs.style.display = '';  // restore any inline hide from previous round
   showScreen('horsesScreen');
   const canvas = document.getElementById('horsesCanvas');
   canvas.width = window.innerWidth;
@@ -6208,6 +6646,8 @@ function initHorses() {
     sprintIsSuper: false,
     nextSprintAt: 2000 + Math.random() * 4000, // first sprint after 2-6s
     superBoostsLeft: 2 + Math.floor(Math.random() * 2), // 2-3 superboosts per horse
+    glideVx: 0,           // horizontal glide velocity (negative = left)
+    nextGlideAt: 1500 + Math.random() * 3000, // when to apply next random glide
   }));
 
   // Pre-generate crowd
@@ -6255,20 +6695,44 @@ function initHorses() {
     finishPlaced: false,
     doneTime: 0,
     hedgeCount: 0,
+    lastGallopSfx: 0,
     homeStretchStart: 0,
     homeStretchAnnounced: false,
-    photoFinish: false,
-    photoFinishTime: 0,
-    photoFinishShown: false,
+    crowdNoise: null,
+    crowdLoud: false,
   };
 
-  sfx('neigh');
-  horsesState.raf = requestAnimationFrame(horsesLoop);
   currentGameCleanup = cleanupHorses;
+  showGameIntro('horses', () => {
+    playGameMusic('horses');
+    sfx('neigh');
+    horsesState.raf = requestAnimationFrame(horsesLoop);
+  });
+}
+
+function startHorseCrowd(vol) {
+  if (!audioCtx) return null;
+  try {
+    const len = Math.floor(audioCtx.sampleRate * 4);
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (0.6 + 0.4 * Math.sin(i * 0.0008));
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 650; bp.Q.value = 0.7;
+    const hp = audioCtx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 300;
+    const gn = audioCtx.createGain(); gn.gain.value = vol;
+    src.connect(bp); bp.connect(hp); hp.connect(gn); gn.connect(sfxGain);
+    src.start();
+    return { src, gn };
+  } catch(e) { return null; }
 }
 
 function cleanupHorses() {
   if (horsesState && horsesState.raf) cancelAnimationFrame(horsesState.raf);
+  if (horsesState && horsesState.crowdNoise) {
+    try { horsesState.crowdNoise.src.stop(); horsesState.crowdNoise.gn.disconnect(); } catch(e) {}
+  }
   horsesState = null;
 }
 
@@ -6367,6 +6831,22 @@ function horsesLoop(t) {
       }
     });
 
+    // Crowd ambient noise — starts quiet, roars on home straight
+    if (!s.crowdNoise && audioCtx) {
+      s.crowdNoise = startHorseCrowd(0.025);
+    }
+    if (s.phase === 'homestraight' && s.crowdNoise && !s.crowdLoud) {
+      s.crowdNoise.gn.gain.linearRampToValueAtTime(0.13, audioCtx.currentTime + 1.5);
+      s.crowdLoud = true;
+    }
+
+    // Galloping sound — rhythmic hoof beats, faster on home straight
+    const gallopInterval = s.phase === 'homestraight' ? 170 : 250;
+    if (now - s.lastGallopSfx > gallopInterval) {
+      sfx(s.phase === 'homestraight' ? 'gallop-fast' : 'gallop');
+      s.lastGallopSfx = now;
+    }
+
     // Spawn hedges — evenly spaced, limited to maxHedges
     const hedgeSpacing = s.totalDistance / (s.maxHedges + 1);
     if (s.hedgeCount < s.maxHedges && s.scrollX - s.lastHedgeAt > hedgeSpacing && !s.finishPlaced) {
@@ -6377,10 +6857,45 @@ function horsesLoop(t) {
     }
 
     // Clamp horse x positions so they don't drift off screen
+    const maxX = s.phase === 'homestraight' ? W * 0.75 : W * 0.55;
     s.horses.forEach(h => {
       if (!h.alive) return;
-      h.x = Math.max(W * 0.05, Math.min(W * 0.55, h.x));
+
+      // Apply and decay glide velocity
+      h.x += h.glideVx;
+      h.glideVx *= 0.94; // friction — glide tapers off
+      if (Math.abs(h.glideVx) < 0.05) h.glideVx = 0;
+
+      // If horse is pushed to the right wall, immediately glide left
+      if (h.x >= maxX - 5) {
+        h.glideVx = -(1.5 + Math.random() * 1.5);
+      }
+
+      // Random leftward glide — fires periodically, biased left to prevent right-bunching
+      if (now >= h.nextGlideAt) {
+        const roll = Math.random();
+        if (roll < 0.65) {
+          // 65% chance: glide left
+          h.glideVx = -(0.8 + Math.random() * 1.4);
+        } else {
+          // 35% chance: small rightward nudge (keeps race feeling dynamic)
+          h.glideVx = 0.3 + Math.random() * 0.6;
+        }
+        h.nextGlideAt = now + 1200 + Math.random() * 2500;
+      }
+
+      h.x = Math.max(W * 0.05, Math.min(maxX, h.x));
     });
+    // Prevent ties — if multiple alive horses share the same x, nudge them apart
+    const alive = s.horses.filter(h => h.alive);
+    if (alive.length > 1) {
+      const sorted = [...alive].sort((a, b) => b.x - a.x);
+      for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i].x >= sorted[i - 1].x - 0.5) {
+          sorted[i].x = sorted[i - 1].x - 0.5 - Math.random() * 0.5;
+        }
+      }
+    }
 
     // Process hedges
     s.hedges.forEach(hedge => {
@@ -6461,27 +6976,9 @@ function horsesLoop(t) {
 
     // === HOME STRAIGHT LOGIC ===
     if (s.phase === 'homestraight') {
-      const homeElapsed = now - s.homeStretchStart;
-      const aliveHorses = s.horses.filter(h => h.alive);
-      const sorted = [...aliveHorses].sort((a, b) => b.x - a.x);
-      const frontX = sorted.length > 0 ? sorted[0].x : 0;
-
-      // Back third get super boosts, middle third creep forward
-      sorted.forEach((h, i) => {
-        const rank = i / Math.max(1, sorted.length - 1); // 0=leader, 1=last
-        if (rank > 0.66) {
-          // Back horses — aggressive super boost
-          if (!h.sprinting && Math.random() < 0.06) {
-            h.sprinting = true;
-            h.sprintStart = now;
-            h.sprintIsSuper = true;
-            h.sprintDuration = 1500 + Math.random() * 1000;
-          }
-        } else if (rank > 0.25) {
-          // Middle horses — steady creep to the right
-          h.x += 0.3 + Math.random() * 0.3;
-        }
-      });
+      // Faster scroll speed for the home straight
+      s.scrollX += s.scrollSpeed * 0.3;
+      // Jockey for position — handled by glideVx system above (no extra raw nudge needed)
     }
 
     // Place finish line — only after 7s of home straight (or if no home straight yet)
@@ -6492,7 +6989,7 @@ function horsesLoop(t) {
     }
 
     // Check for finish line crossing
-    if (s.finishPlaced && s.phase !== 'done' && s.phase !== 'photofinish') {
+    if (s.finishPlaced && s.phase !== 'done') {
       const finishScreenX = s.finishX - s.scrollX;
       const aliveHorses = s.horses.filter(h => h.alive);
       if (aliveHorses.length === 0) {
@@ -6506,35 +7003,15 @@ function horsesLoop(t) {
         const sorted = [...aliveHorses].sort((a, b) => b.x - a.x);
         const winner = sorted[0];
         s.winner = players[winner.playerIdx];
-        // Check for photo finish — top 2 horses within 25px
-        if (sorted.length >= 2 && Math.abs(sorted[0].x - sorted[1].x) < 25) {
-          s.photoFinish = true;
-          s.photoFinishTime = now;
-          s.phase = 'photofinish';
-          // Capture the photo finish moment
-          captureCanvasMoment('horsesCanvas', null);
-          sfx('cheer');
-        } else {
-          s.phase = 'done';
-          s.doneTime = now;
-          sfx('cheer');
-        }
+        s.phase = 'done';
+        s.doneTime = now;
+        sfx('cheer');
       } else if (aliveHorses.length === 1 && s.hedgeCount > 2) {
         // Only one left — they win
         s.winner = players[aliveHorses[0].playerIdx];
         s.phase = 'done';
         s.doneTime = now;
         sfx('cheer');
-      }
-    }
-
-    // Photo finish phase — show the photo then reveal winner
-    if (s.phase === 'photofinish') {
-      const photoElapsed = now - s.photoFinishTime;
-      if (photoElapsed > 4000) {
-        // After showing photo finish for 4s, transition to done
-        s.phase = 'done';
-        s.doneTime = now;
       }
     }
 
@@ -6555,11 +7032,16 @@ function horsesLoop(t) {
   }
 
   // Done phase — capture and show winner
-  if (s.phase === 'done' && s.doneTime && now - s.doneTime > 2500) {
+  if (s.phase === 'done' && s.doneTime && now - s.doneTime > 1500) {
     // Draw one last frame before transitioning
     try { drawHorsesScene(ctx, W, H, s, now, false); } catch(e) {}
     const winnerName = s.winner;
     captureCanvasMoment('horsesCanvas', winnerName);
+    // Clear the canvas so it never bleeds through the winner screen
+    try { ctx.clearRect(0, 0, W, H); } catch(e) {}
+    // Explicitly hide horses screen before showing winner
+    const hs = document.getElementById('horsesScreen');
+    if (hs) hs.style.display = 'none';
     resetGame();
     showWinner(winnerName);
     return;
@@ -6726,78 +7208,8 @@ function drawHorsesScene(ctx, W, H, s, t, racing) {
     }
   }
 
-  // === PHOTO FINISH OVERLAY ===
-  if (s.phase === 'photofinish' && s.photoFinishTime) {
-    const photoElapsed = t - s.photoFinishTime;
-    ctx.save();
-    // Darken background
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(0, 0, W, H);
-    // "PHOTO FINISH!" text
-    const textPulse = 1 + Math.sin(photoElapsed * 0.006) * 0.05;
-    ctx.fillStyle = '#FF2222';
-    ctx.font = `bold ${Math.min(48, W * 0.065)}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(255,255,0,0.8)';
-    ctx.shadowBlur = 20;
-    ctx.translate(W / 2, H * 0.15);
-    ctx.scale(textPulse, textPulse);
-    ctx.fillText('\u{1F4F8} PHOTO FINISH! \u{1F4F8}', 0, 0);
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.shadowBlur = 0;
-    // Draw captured photo in a polaroid frame
-    if (lastWinningMoment) {
-      const img = new Image();
-      img.src = lastWinningMoment;
-      const photoW = Math.min(W * 0.6, 500);
-      const photoH = photoW * 0.55;
-      const photoX = (W - photoW) / 2;
-      const photoY = H * 0.25;
-      const pad = 10;
-      // White polaroid border
-      ctx.fillStyle = '#fff';
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = 20;
-      ctx.fillRect(photoX - pad, photoY - pad, photoW + pad * 2, photoH + pad * 2 + 40);
-      ctx.shadowBlur = 0;
-      // Photo image
-      try { ctx.drawImage(img, photoX, photoY, photoW, photoH); } catch(e) {}
-      // Caption
-      ctx.fillStyle = '#333';
-      ctx.font = `bold ${Math.min(18, W * 0.025)}px monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillText('Too close to call...', W / 2, photoY + photoH + pad + 22);
-    }
-    // Reveal winner text fades in after 2.5s
-    if (photoElapsed > 2500) {
-      const revealAlpha = Math.min(1, (photoElapsed - 2500) / 800);
-      ctx.globalAlpha = revealAlpha;
-      ctx.fillStyle = '#FFD700';
-      ctx.font = `bold ${Math.min(40, W * 0.055)}px monospace`;
-      ctx.textAlign = 'center';
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = 10;
-      ctx.fillText('\u{1F3C6} ' + s.winner + ' wins!', W / 2, H * 0.88);
-      ctx.shadowBlur = 0;
-    }
-    ctx.restore();
-  }
+  // (Winner announced on winner screen — no in-race banner needed)
 
-  // === WINNER BANNER ===
-  if (s.phase === 'done' && s.winner && !s.photoFinish) {
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    const bannerH = 60;
-    ctx.fillRect(0, H / 2 - bannerH / 2, W, bannerH);
-    ctx.fillStyle = '#FFD700';
-    ctx.font = `bold ${Math.min(36, W * 0.05)}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur = 8;
-    ctx.fillText('\u{1F3C6} ' + s.winner + ' wins!', W / 2, H / 2);
-    ctx.shadowBlur = 0;
-  }
 }
 
 function drawHedge(ctx, x, trackTop, trackH, scale, isLast) {
@@ -6953,36 +7365,93 @@ function drawHorseSprite(ctx, h, t, s, racing) {
   }
 
   // --- NECK & HEAD ---
+  // Neck base at front-top of body; tip is computed so head attaches cleanly
+  const neckBaseX = bodyW * 0.36;
+  const neckBaseY = -bodyH * 0.28;
+  const neckAng = -0.95;
+  const neckLen = 19 * sc;
+  const neckTipX = neckBaseX + Math.cos(neckAng) * neckLen;
+  const neckTipY = neckBaseY + Math.sin(neckAng) * neckLen;
+
+  // Neck as tapered quad
+  const perpX = Math.cos(neckAng + Math.PI / 2);
+  const perpY = Math.sin(neckAng + Math.PI / 2);
+  const nkBW = 7 * sc, nkTW = 5 * sc;
   ctx.fillStyle = h.brownShade;
-  // Neck
-  ctx.save();
-  ctx.translate(bodyW * 0.4, -bodyH * 0.3);
-  ctx.rotate(-0.5);
-  ctx.fillRect(-3 * sc, -18 * sc, 8 * sc, 20 * sc);
-  ctx.restore();
-  // Head
-  const headX = bodyW * 0.45 + 8 * sc;
-  const headY = -bodyH * 0.3 - 18 * sc;
   ctx.beginPath();
-  ctx.ellipse(headX, headY, 10 * sc, 6 * sc, -0.2, 0, Math.PI * 2);
+  ctx.moveTo(neckBaseX + perpX * nkBW / 2, neckBaseY + perpY * nkBW / 2);
+  ctx.lineTo(neckTipX  + perpX * nkTW / 2, neckTipY  + perpY * nkTW / 2);
+  ctx.lineTo(neckTipX  - perpX * nkTW / 2, neckTipY  - perpY * nkTW / 2);
+  ctx.lineTo(neckBaseX - perpX * nkBW / 2, neckBaseY - perpY * nkBW / 2);
+  ctx.closePath();
   ctx.fill();
+
+  // Mane along top edge of neck
+  ctx.strokeStyle = darkenColor(h.brownShade, 0.6);
+  ctx.lineWidth = 3 * sc;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(neckBaseX + perpX * nkBW / 2, neckBaseY + perpY * nkBW / 2);
+  ctx.quadraticCurveTo(
+    neckBaseX + Math.cos(neckAng) * neckLen * 0.5 + perpX * 5 * sc,
+    neckBaseY + Math.sin(neckAng) * neckLen * 0.5 + perpY * 5 * sc,
+    neckTipX + perpX * nkTW / 2, neckTipY + perpY * nkTW / 2
+  );
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+
+  // Head: derived from neck tip so it is always attached
+  const headAng = neckAng + 0.55;
+  const headLen = 16 * sc, headH = 7 * sc;
+  const headCX = neckTipX + Math.cos(headAng) * headLen * 0.38;
+  const headCY = neckTipY + Math.sin(headAng) * headLen * 0.38;
+
+  ctx.save();
+  ctx.translate(headCX, headCY);
+  ctx.rotate(headAng);
+
+  // Main head ellipse
+  ctx.fillStyle = h.brownShade;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, headLen * 0.5, headH * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Muzzle — slightly darker bulge at the nose end
+  ctx.fillStyle = darkenColor(h.brownShade, 0.88);
+  ctx.beginPath();
+  ctx.ellipse(headLen * 0.36, headH * 0.08, headLen * 0.19, headH * 0.42, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Nostril
+  ctx.fillStyle = darkenColor(h.brownShade, 0.55);
+  ctx.beginPath();
+  ctx.arc(headLen * 0.44, headH * 0.12, 1.3 * sc, 0, Math.PI * 2);
+  ctx.fill();
+
   // Eye
   ctx.fillStyle = '#111';
   ctx.beginPath();
-  ctx.arc(headX + 5 * sc, headY - 2 * sc, 1.5 * sc, 0, Math.PI * 2);
+  ctx.arc(headLen * 0.07, -headH * 0.22, 1.8 * sc, 0, Math.PI * 2);
   ctx.fill();
-  // Nostril
+  ctx.fillStyle = '#fff';
   ctx.beginPath();
-  ctx.arc(headX + 9 * sc, headY + 1 * sc, 1 * sc, 0, Math.PI * 2);
+  ctx.arc(headLen * 0.09, -headH * 0.28, 0.6 * sc, 0, Math.PI * 2);
   ctx.fill();
+
   // Ear
   ctx.fillStyle = h.brownShade;
   ctx.beginPath();
-  ctx.moveTo(headX + 2 * sc, headY - 5 * sc);
-  ctx.lineTo(headX + 5 * sc, headY - 12 * sc);
-  ctx.lineTo(headX + 7 * sc, headY - 5 * sc);
+  ctx.moveTo(-headLen * 0.12, -headH * 0.46);
+  ctx.lineTo(-headLen * 0.03, -headH * 0.46 - 7 * sc);
+  ctx.lineTo(headLen * 0.06, -headH * 0.46);
   ctx.closePath();
   ctx.fill();
+
+  ctx.restore();
+
+  // Expose nose world position for reins
+  const headX = headCX + Math.cos(headAng) * headLen * 0.36 - Math.sin(headAng) * headH * 0.08;
+  const headY = headCY + Math.sin(headAng) * headLen * 0.36 + Math.cos(headAng) * headH * 0.08;
 
   // --- TAIL ---
   ctx.strokeStyle = darkenColor(h.brownShade, 0.6);
