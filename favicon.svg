@@ -1,47 +1,52 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <defs>
-    <radialGradient id="bg" cx="50%" cy="40%" r="55%">
-      <stop offset="0%" stop-color="#2a0050"/>
-      <stop offset="100%" stop-color="#080010"/>
-    </radialGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="1.5" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" shape-rendering="crispEdges">
+  <!-- Dark bg -->
+  <rect width="100" height="100" fill="#1a1a2e"/>
 
-  <!-- Background circle -->
-  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+  <!-- Base — gold elliptical platform -->
+  <!-- bottom shadow row -->
+  <rect x="18" y="78" width="64" height="4" fill="#8a6a00"/>
+  <!-- main base outer -->
+  <rect x="10" y="68" width="80" height="12" fill="#b8960a"/>
+  <rect x="14" y="66" width="72" height="4"  fill="#c8a820"/>
+  <rect x="18" y="80" width="64" height="4"  fill="#8a6a00"/>
+  <!-- base highlight ring -->
+  <rect x="14" y="66" width="72" height="2"  fill="#ffe066"/>
+  <rect x="18" y="64" width="64" height="2"  fill="#ffe066"/>
+  <!-- inner dark groove -->
+  <rect x="22" y="70" width="56" height="6"  fill="#8a6a00"/>
+  <rect x="26" y="68" width="48" height="4"  fill="#6a4a00"/>
+  <!-- centre inner highlight -->
+  <rect x="30" y="70" width="40" height="2"  fill="#c8a820"/>
 
-  <!-- Outer neon ring -->
-  <circle cx="50" cy="50" r="47" fill="none" stroke="#ff00ff" stroke-width="2" opacity="0.8"/>
-  <circle cx="50" cy="50" r="44" fill="none" stroke="#00ffff" stroke-width="0.6" opacity="0.4"/>
+  <!-- Shaft — gold/yellow -->
+  <rect x="44" y="40" width="12" height="28" fill="#c8a820"/>
+  <rect x="44" y="40" width="4"  height="28" fill="#ffe066"/>
+  <rect x="52" y="40" width="4"  height="28" fill="#8a6a00"/>
 
-  <!-- Pixel art joystick base (rectangle) -->
-  <rect x="28" y="62" width="44" height="14" rx="3" fill="#1a0035" stroke="#ff00ff" stroke-width="1.5"/>
+  <!-- Ball — hot pink/magenta -->
+  <!-- shadow/dark edge -->
+  <rect x="34" y="6"  width="32" height="4"  fill="#8a0040"/>
+  <rect x="30" y="10" width="40" height="4"  fill="#aa0050"/>
+  <rect x="26" y="14" width="48" height="4"  fill="#cc1166"/>
+  <rect x="24" y="18" width="52" height="4"  fill="#ee2288"/>
+  <rect x="24" y="22" width="52" height="4"  fill="#ff3399"/>
+  <rect x="24" y="26" width="52" height="4"  fill="#ff3399"/>
+  <rect x="26" y="30" width="48" height="4"  fill="#cc1166"/>
+  <rect x="30" y="34" width="40" height="4"  fill="#aa0050"/>
+  <rect x="34" y="38" width="32" height="4"  fill="#8a0040"/>
 
-  <!-- Base buttons -->
-  <circle cx="38" cy="69" r="4" fill="#e94560" filter="url(#glow)"/>
-  <circle cx="50" cy="69" r="4" fill="#f5a623" filter="url(#glow)"/>
-  <circle cx="62" cy="69" r="4" fill="#2ecc71" filter="url(#glow)"/>
-
-  <!-- Joystick shaft -->
-  <rect x="46" y="38" width="8" height="26" rx="4" fill="#cc00ff" stroke="#ff66ff" stroke-width="1"/>
-
-  <!-- Joystick ball -->
-  <circle cx="50" cy="35" r="10" fill="none" stroke="#00ffff" stroke-width="1.5"/>
-  <radialGradient id="ball" cx="38%" cy="35%">
-    <stop offset="0%" stop-color="#88ffff"/>
-    <stop offset="50%" stop-color="#00aacc"/>
-    <stop offset="100%" stop-color="#003344"/>
-  </radialGradient>
-  <circle cx="50" cy="35" r="10" fill="url(#ball)" filter="url(#glow)"/>
+  <!-- Ball highlight — top-left bright spot -->
+  <rect x="32" y="10" width="14" height="4"  fill="#ff66aa"/>
+  <rect x="28" y="14" width="12" height="8"  fill="#ff66aa"/>
+  <rect x="32" y="10" width="6"  height="4"  fill="#ff99cc"/>
   <!-- Glint -->
-  <circle cx="46" cy="31" r="2.5" fill="rgba(255,255,255,0.55)"/>
+  <rect x="34" y="12" width="4"  height="4"  fill="#ffddee"/>
+  <rect x="38" y="8"  width="4"  height="4"  fill="#ffccdd"/>
 
-  <!-- Corner star pixels -->
-  <rect x="14" y="14" width="4" height="4" fill="#ff00ff" opacity="0.7"/>
-  <rect x="82" y="14" width="4" height="4" fill="#00ffff" opacity="0.7"/>
-  <rect x="14" y="82" width="4" height="4" fill="#00ffff" opacity="0.5"/>
-  <rect x="82" y="82" width="4" height="4" fill="#ff00ff" opacity="0.5"/>
+  <!-- Cross/plus on ball -->
+  <rect x="46" y="18" width="8"  height="4"  fill="#ffdd00"/>
+  <rect x="50" y="14" width="4"  height="4"  fill="#ffdd00"/>
+  <rect x="50" y="22" width="4"  height="4"  fill="#ffdd00"/>
+  <rect x="42" y="18" width="4"  height="4"  fill="#ffdd00"/>
+  <rect x="54" y="18" width="4"  height="4"  fill="#ffdd00"/>
 </svg>
