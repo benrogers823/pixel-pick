@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#2a0050"/>
+      <stop offset="100%" stop-color="#080010"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+
+  <!-- Outer neon ring -->
+  <circle cx="50" cy="50" r="47" fill="none" stroke="#ff00ff" stroke-width="2" opacity="0.8"/>
+  <circle cx="50" cy="50" r="44" fill="none" stroke="#00ffff" stroke-width="0.6" opacity="0.4"/>
+
+  <!-- Pixel art joystick base (rectangle) -->
+  <rect x="28" y="62" width="44" height="14" rx="3" fill="#1a0035" stroke="#ff00ff" stroke-width="1.5"/>
+
+  <!-- Base buttons -->
+  <circle cx="38" cy="69" r="4" fill="#e94560" filter="url(#glow)"/>
+  <circle cx="50" cy="69" r="4" fill="#f5a623" filter="url(#glow)"/>
+  <circle cx="62" cy="69" r="4" fill="#2ecc71" filter="url(#glow)"/>
+
+  <!-- Joystick shaft -->
+  <rect x="46" y="38" width="8" height="26" rx="4" fill="#cc00ff" stroke="#ff66ff" stroke-width="1"/>
+
+  <!-- Joystick ball -->
+  <circle cx="50" cy="35" r="10" fill="none" stroke="#00ffff" stroke-width="1.5"/>
+  <radialGradient id="ball" cx="38%" cy="35%">
+    <stop offset="0%" stop-color="#88ffff"/>
+    <stop offset="50%" stop-color="#00aacc"/>
+    <stop offset="100%" stop-color="#003344"/>
+  </radialGradient>
+  <circle cx="50" cy="35" r="10" fill="url(#ball)" filter="url(#glow)"/>
+  <!-- Glint -->
+  <circle cx="46" cy="31" r="2.5" fill="rgba(255,255,255,0.55)"/>
+
+  <!-- Corner star pixels -->
+  <rect x="14" y="14" width="4" height="4" fill="#ff00ff" opacity="0.7"/>
+  <rect x="82" y="14" width="4" height="4" fill="#00ffff" opacity="0.7"/>
+  <rect x="14" y="82" width="4" height="4" fill="#00ffff" opacity="0.5"/>
+  <rect x="82" y="82" width="4" height="4" fill="#ff00ff" opacity="0.5"/>
+</svg>
