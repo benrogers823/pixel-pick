@@ -3704,8 +3704,8 @@ function startMarbleRace() {
   const laneWidth = trackWidth / n;
   const trackLeft = (canvas.width - trackWidth) / 2;
   const marbleR = Math.min(laneWidth * 0.35, 18);
-  const baseSpeed = creatorMode ? 22 : 8.5;
-  const trackLength = baseSpeed * 60 * (creatorMode ? 6 : 20);
+  const baseSpeed = creatorMode ? 28 : 8.5;
+  const trackLength = baseSpeed * 60 * (creatorMode ? 5 : 20);
 
   // Static circle obstacles
   const obstacles = [];
@@ -4062,7 +4062,14 @@ function startMarbleRace() {
       const screenY = m.y - cameraY;
       const isOffScreen = screenY < -30 || screenY > canvas.height + 30;
       const isLeader = mi === leaderIdx;
-      const speedMult = (isOffScreen ? 1.5 : isLeader ? 0.9 : 1.0) * boostMult;
+      let rubberBand = isOffScreen ? 1.5 : isLeader ? 0.9 : 1.0;
+      // Creator mode: dramatic comeback in final 40% — leader slows hard, others speed up
+      if (creatorMode && m.y < -trackLength * 0.4) {
+        const progress = Math.min(1, (m.y + trackLength * 0.4) / (-trackLength * 0.6));
+        if (isLeader) rubberBand = 0.9 - progress * 0.35; // leader slows to 0.55x
+        else rubberBand = 1.0 + progress * 0.4; // chasers boost to 1.4x
+      }
+      const speedMult = rubberBand * boostMult;
       const targetVy = m.baseVy * speedMult;
       if (m.hitTime === null) {
         m.vy += (targetVy - m.vy) * (1 - Math.pow(boostMult > 1.2 ? 0.85 : 0.95, dt));
@@ -6714,7 +6721,7 @@ function cleanupEngulf() {
 }
 
 function radiusFromVolume(v) { return Math.sqrt(v / Math.PI); }
-function engulfSpeed(v) { const base = 1.8 + 0.6 * Math.log(v / 800 + 1); return creatorMode ? base * 3 : base; }
+function engulfSpeed(v) { const base = 1.8 + 0.6 * Math.log(v / 800 + 1); return creatorMode ? base * 2 : base; }
 function engulfDist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 function updateEngulfScoreboard(o) {
@@ -8466,7 +8473,7 @@ function creatorStartGame() {
 
 // ---- Reveal screen ----
 function showCreatorReveal(winnerName) {
-  stopAllMusic();
+  stopMusic();
 
   const revealEl = document.getElementById('creatorRevealScreen');
   const answerEl = document.getElementById('crRevealAnswer');
