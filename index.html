@@ -542,6 +542,11 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
   body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
 }
 </style>
+<!-- Vercel Web Analytics -->
+<script type="module">
+  import { inject } from 'https://cdn.jsdelivr.net/npm/@vercel/analytics@2.0.1/+esm';
+  inject({ mode: 'auto' });
+</script>
 </head>
 <body>
 <button id="muteBtn" onclick="toggleMute()" title="Toggle music">🔊</button>
