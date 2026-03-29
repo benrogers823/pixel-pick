@@ -651,14 +651,15 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 .cr-border { position:absolute; inset:8px; border:3px solid #f5a623; border-radius:6px; box-shadow:0 0 20px rgba(245,166,35,0.3), inset 0 0 20px rgba(245,166,35,0.1); animation:crBorderPulse 2s ease-in-out infinite; pointer-events:none; z-index:1; }
 @keyframes crBorderPulse { 0%,100%{box-shadow:0 0 20px rgba(245,166,35,0.3), inset 0 0 20px rgba(245,166,35,0.1);} 50%{box-shadow:0 0 40px rgba(245,166,35,0.6), inset 0 0 40px rgba(245,166,35,0.2);} }
 
-.cr-vs { font-family:'Press Start 2P',monospace; font-size:clamp(1.8em,5vw,3em); color:#e94560; text-shadow:0 0 20px rgba(233,69,96,0.8), 0 0 60px rgba(233,69,96,0.4); margin:18px 0; animation:crVsPulse 0.8s ease-in-out infinite; }
-@keyframes crVsPulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.15);} }
-
-.cr-option { font-family:'Press Start 2P',monospace; font-size:clamp(0.85em,3vw,1.6em); color:#fff; text-shadow:0 0 12px rgba(255,255,255,0.5); padding:10px 20px; max-width:85%; text-align:center; line-height:1.6; animation:crOptionGlow 1.5s ease-in-out infinite alternate; }
-.cr-option.top { color:#3498db; text-shadow:0 0 15px rgba(52,152,219,0.7); }
-.cr-option.bot { color:#2ecc71; text-shadow:0 0 15px rgba(46,204,113,0.7); }
-
+#crHookOpts { display:flex; flex-direction:column; align-items:center; gap:0; z-index:3; max-height:60vh; overflow-y:auto; width:100%; }
+.cr-hook-vs { font-family:'Press Start 2P',monospace; font-size:clamp(0.7em,2vw,1.1em); color:#e94560; text-shadow:0 0 12px rgba(233,69,96,0.6); margin:4px 0; }
+.cr-hook-opt { font-family:'Press Start 2P',monospace; font-size:clamp(0.7em,2.5vw,1.3em); color:#fff; text-shadow:0 0 12px rgba(255,255,255,0.5); padding:6px 20px; max-width:85%; text-align:center; line-height:1.4; animation:crOptionGlow 1.5s ease-in-out infinite alternate; }
 @keyframes crOptionGlow { 0%{filter:brightness(1);} 100%{filter:brightness(1.3);} }
+/* Cycle through colors for multi-option */
+.cr-hook-opt:nth-child(4n+1) { color:#3498db; text-shadow:0 0 15px rgba(52,152,219,0.7); }
+.cr-hook-opt:nth-child(4n+3) { color:#2ecc71; text-shadow:0 0 15px rgba(46,204,113,0.7); }
+.cr-hook-opt:nth-child(4n+5) { color:#f5a623; text-shadow:0 0 15px rgba(245,166,35,0.7); }
+.cr-hook-opt:nth-child(4n+7) { color:#e94560; text-shadow:0 0 15px rgba(233,69,96,0.7); }
 
 .cr-question { font-family:'Press Start 2P',monospace; font-size:clamp(0.55em,2vw,0.85em); color:#f5a623; text-shadow:0 0 10px rgba(245,166,35,0.5); text-align:center; max-width:85%; line-height:1.8; margin-bottom:20px; z-index:3; }
 
@@ -666,9 +667,7 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 
 /* Hook screen entrance animations */
 .cr-hook-enter .cr-question { animation:crSlideDown 0.6s ease-out both; }
-.cr-hook-enter .cr-option.top { animation:crSlideLeft 0.5s ease-out 0.4s both; }
-.cr-hook-enter .cr-vs { animation:crVsSlam 0.4s ease-out 0.8s both; }
-.cr-hook-enter .cr-option.bot { animation:crSlideRight 0.5s ease-out 1.2s both; }
+.cr-hook-enter #crHookOpts { animation:crFadeIn 0.5s ease-out 0.4s both; }
 .cr-hook-enter .cr-decide { animation:crFadeIn 0.5s ease-out 1.6s both; }
 
 @keyframes crSlideDown { 0%{transform:translateY(-60px);opacity:0;} 100%{transform:translateY(0);opacity:1;} }
@@ -701,6 +700,43 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 /* Sparkle particles on reveal */
 .cr-sparkle { position:absolute; width:4px; height:4px; background:#f5a623; z-index:3; pointer-events:none; animation:crSparkle 1.2s ease-out forwards; }
 @keyframes crSparkle { 0%{opacity:1;transform:scale(1) translate(0,0);} 100%{opacity:0;transform:scale(0) translate(var(--sx),var(--sy));} }
+
+/* === CREATOR SETUP SCREEN === */
+#creatorSetupScreen { position:fixed; inset:0; z-index:10001; background:radial-gradient(ellipse at 50% 30%, #1a0035 0%, #08000f 60%, #000 100%); display:none; flex-direction:column; align-items:center; overflow-y:auto; padding:20px 10px; }
+#creatorSetupScreen.active { display:flex; }
+#creatorSetupScreen::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,rgba(0,0,0,0.15) 0px,rgba(0,0,0,0.15) 1px,transparent 1px,transparent 3px); pointer-events:none; z-index:2; }
+
+.cr-setup-title { font-family:'Press Start 2P',monospace; font-size:clamp(0.8em,3vw,1.3em); color:#f5a623; text-shadow:0 0 15px rgba(245,166,35,0.5); margin:10px 0 6px; z-index:3; text-align:center; }
+.cr-setup-sub { font-family:'Press Start 2P',monospace; font-size:clamp(0.4em,1.5vw,0.55em); color:#888; margin-bottom:18px; z-index:3; text-align:center; line-height:1.6; }
+
+.cr-custom-area { display:flex; flex-direction:column; gap:6px; width:min(95%,500px); z-index:3; margin-bottom:8px; }
+.cr-opt-row { display:flex; gap:6px; align-items:center; }
+.cr-opt-row input { flex:1; font-family:'Press Start 2P',monospace; font-size:0.5em; padding:9px 10px; background:#1a1a2e; border:2px solid #333; color:#fff; border-radius:4px; outline:none; }
+.cr-opt-row input:focus { border-color:#f5a623; box-shadow:0 0 8px rgba(245,166,35,0.3); }
+.cr-opt-row input::placeholder { color:#555; }
+.cr-opt-remove { font-family:'Press Start 2P',monospace; font-size:0.5em; background:none; border:2px solid #444; color:#e94560; width:28px; height:28px; cursor:pointer; border-radius:4px; flex-shrink:0; transition:border-color 0.2s; display:flex; align-items:center; justify-content:center; }
+.cr-opt-remove:hover { border-color:#e94560; }
+.cr-add-btn { font-family:'Press Start 2P',monospace; font-size:0.45em; background:none; border:2px dashed #444; color:#888; padding:8px; cursor:pointer; border-radius:4px; transition:border-color 0.2s,color 0.2s; width:100%; }
+.cr-add-btn:hover { border-color:#f5a623; color:#f5a623; }
+
+.cr-q-row { width:min(95%,500px); z-index:3; margin-bottom:8px; }
+.cr-q-row input { width:100%; font-family:'Press Start 2P',monospace; font-size:0.5em; padding:9px 10px; background:#1a1a2e; border:2px solid #333; color:#fff; border-radius:4px; outline:none; text-align:center; }
+.cr-q-row input:focus { border-color:#f5a623; box-shadow:0 0 8px rgba(245,166,35,0.3); }
+.cr-q-row input::placeholder { color:#555; }
+
+.cr-go-btn { font-family:'Press Start 2P',monospace; font-size:clamp(0.6em,2vw,0.8em); background:linear-gradient(180deg,#2ecc71,#1a9c57); color:#fff; border:none; padding:14px 40px; cursor:pointer; border-radius:4px; box-shadow:0 4px 20px rgba(46,204,113,0.4); z-index:3; margin:10px 0 18px; transition:transform 0.15s,box-shadow 0.15s; }
+.cr-go-btn:hover { transform:scale(1.08); box-shadow:0 6px 30px rgba(46,204,113,0.6); }
+.cr-go-btn:disabled { opacity:0.4; pointer-events:none; }
+
+.cr-divider { font-family:'Press Start 2P',monospace; font-size:0.5em; color:#555; margin:8px 0 14px; z-index:3; letter-spacing:2px; }
+
+.cr-suggestions { display:flex; flex-direction:column; gap:6px; width:min(95%,540px); z-index:3; max-height:45vh; overflow-y:auto; padding-right:4px; }
+.cr-suggestions::-webkit-scrollbar { width:4px; }
+.cr-suggestions::-webkit-scrollbar-thumb { background:#333; border-radius:2px; }
+.cr-sug-btn { font-family:'Press Start 2P',monospace; font-size:clamp(0.38em,1.3vw,0.48em); background:#1a1a2e; border:2px solid #222; color:#ccc; padding:10px 14px; cursor:pointer; border-radius:4px; text-align:left; line-height:1.6; transition:border-color 0.2s, background 0.2s; }
+.cr-sug-btn:hover { border-color:#f5a623; background:#1f1f3a; }
+.cr-sug-btn .cr-sug-q { color:#f5a623; display:block; margin-bottom:4px; }
+.cr-sug-btn .cr-sug-opts { color:#888; font-size:0.9em; }
 </style>
 </head>
 <body>
@@ -850,13 +886,24 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
   <canvas id="horsesCanvas"></canvas>
 </div>
 
+<!-- Creator Mode: Setup Screen -->
+<div id="creatorSetupScreen">
+  <div class="cr-setup-title">🎬 CREATOR MODE</div>
+  <div class="cr-setup-sub">ENTER YOUR OWN OR PICK ONE BELOW</div>
+  <div class="cr-q-row">
+    <input type="text" id="crInputQ" placeholder="QUESTION (optional)" maxlength="60" autocomplete="off">
+  </div>
+  <div class="cr-custom-area" id="crOptsArea"></div>
+  <button class="cr-go-btn" id="crGoBtn" onclick="creatorLaunch()" disabled>🕹️ GO</button>
+  <div class="cr-divider">— OR PICK A SUGGESTION —</div>
+  <div class="cr-suggestions" id="crSuggestions"></div>
+</div>
+
 <!-- Creator Mode: Hook Screen -->
 <div id="creatorHookScreen">
   <div class="cr-border"></div>
   <div class="cr-question" id="crQuestion"></div>
-  <div class="cr-option top" id="crOptionA"></div>
-  <div class="cr-vs">⚡ VS ⚡</div>
-  <div class="cr-option bot" id="crOptionB"></div>
+  <div id="crHookOpts"></div>
   <div class="cr-decide" id="crDecide">🕹️ THE MACHINE WILL DECIDE 🕹️</div>
 </div>
 
@@ -8047,153 +8094,355 @@ function darkenColor(hex, factor) {
 }
 
 // ============ CREATOR MODE ============
+// Format: {q: question, opts: [options], spicy: index_of_funniest}
 const CREATOR_QUESTIONS = [
-  // {q: question text, a: option A, b: option B, spicy: 'a'|'b' (funnier/more engaging answer)}
-  {q:"WHO WOULD WIN IN A FIGHT?", a:"BATMAN", b:"SPIDER-MAN", spicy:"b"},
-  {q:"WHICH IS THE BETTER PIZZA TOPPING?", a:"PINEAPPLE", b:"PEPPERONI", spicy:"a"},
-  {q:"WHO IS THE GOAT?", a:"MESSI", b:"RONALDO", spicy:"a"},
-  {q:"WHICH SUPERPOWER WOULD YOU CHOOSE?", a:"FLY", b:"INVISIBILITY", spicy:"b"},
-  {q:"BETTER BREAKFAST?", a:"PANCAKES", b:"WAFFLES", spicy:"b"},
-  {q:"WHO WOULD SURVIVE A ZOMBIE APOCALYPSE?", a:"YOUR MUM", b:"YOUR DAD", spicy:"a"},
-  {q:"BETTER PET?", a:"CATS", b:"DOGS", spicy:"a"},
-  {q:"WHO IS FUNNIER?", a:"KEVIN HART", b:"THE ROCK", spicy:"b"},
-  {q:"WHICH IS WORSE?", a:"NO WIFI FOR A YEAR", b:"NO PHONE FOR A YEAR", spicy:"a"},
-  {q:"WHO WINS IN A RAP BATTLE?", a:"EMINEM", b:"DRAKE", spicy:"a"},
-  {q:"BETTER MOVIE FRANCHISE?", a:"MARVEL", b:"DC", spicy:"b"},
-  {q:"WHICH IS MORE PAINFUL?", a:"STEPPING ON LEGO", b:"BITING YOUR TONGUE", spicy:"a"},
-  {q:"WHO WOULD YOU TRUST TO COOK DINNER?", a:"GORDON RAMSAY", b:"YOUR BEST FRIEND", spicy:"b"},
-  {q:"BETTER HOLIDAY DESTINATION?", a:"BEACH", b:"MOUNTAINS", spicy:"a"},
-  {q:"WHICH IS THE BIGGER RED FLAG?", a:"DOUBLE TEXTING", b:"NEVER TEXTING FIRST", spicy:"a"},
-  {q:"WHO IS THE BEST DISNEY VILLAIN?", a:"SCAR", b:"MALEFICENT", spicy:"a"},
-  {q:"WHICH WOULD YOU GIVE UP FOREVER?", a:"CHOCOLATE", b:"CHEESE", spicy:"b"},
-  {q:"BETTER SOCIAL MEDIA?", a:"TIKTOK", b:"INSTAGRAM", spicy:"a"},
-  {q:"WHO WOULD WIN THE HUNGER GAMES?", a:"YOU", b:"YOUR SIBLING", spicy:"b"},
-  {q:"WHICH IS MORE ANNOYING?", a:"SLOW WALKERS", b:"LOUD CHEWERS", spicy:"b"},
-  {q:"BETTER DECADE FOR MUSIC?", a:"90s", b:"2000s", spicy:"a"},
-  {q:"WHO IS THE REAL KING OF POP?", a:"MICHAEL JACKSON", b:"BRUNO MARS", spicy:"b"},
-  {q:"WHICH IS THE BIGGER FLEX?", a:"RICH", b:"FAMOUS", spicy:"b"},
-  {q:"BETTER CANDY?", a:"SKITTLES", b:"M&Ms", spicy:"a"},
-  {q:"WHO WOULD BE A WORSE PRESIDENT?", a:"KANYE", b:"MR BEAST", spicy:"a"},
-  {q:"WHICH IS HARDER?", a:"WAKING UP EARLY", b:"GOING TO BED EARLY", spicy:"a"},
-  {q:"BETTER TV SHOW?", a:"FRIENDS", b:"THE OFFICE", spicy:"b"},
-  {q:"WHO WOULD YOU WANT AS A ROOMMATE?", a:"SHREK", b:"DONKEY", spicy:"b"},
-  {q:"WHICH IS WORSE ON A DATE?", a:"BAD BREATH", b:"BAD JOKES", spicy:"b"},
-  {q:"BETTER FAST FOOD?", a:"MCDONALD'S", b:"KFC", spicy:"a"},
-  {q:"WHO WOULD WIN IN ARM WRESTLING?", a:"YOUR TEACHER", b:"YOUR BOSS", spicy:"a"},
-  {q:"WHICH WOULD YOU RATHER FIGHT?", a:"100 DUCK-SIZED HORSES", b:"1 HORSE-SIZED DUCK", spicy:"b"},
-  {q:"BETTER CHIP FLAVOUR?", a:"SALT & VINEGAR", b:"CHEESE & ONION", spicy:"a"},
-  {q:"WHO HAS BETTER FANS?", a:"TAYLOR SWIFT", b:"BEYONCÉ", spicy:"a"},
-  {q:"WHICH IS MORE CRINGE?", a:"DAD JOKES", b:"PICKUP LINES", spicy:"b"},
-  {q:"BETTER SCHOOL SUBJECT?", a:"PE", b:"LUNCH", spicy:"b"},
-  {q:"WHO WOULD SURVIVE LONGER ON A DESERT ISLAND?", a:"BEAR GRYLLS", b:"YOUR NAN", spicy:"b"},
-  {q:"WHICH IS THE ULTIMATE COMFORT FOOD?", a:"MAC & CHEESE", b:"CHICKEN NUGGETS", spicy:"a"},
-  {q:"BETTER ANIMATED MOVIE?", a:"SHREK", b:"TOY STORY", spicy:"a"},
-  {q:"WHO WOULD BE A BETTER SUPERHERO?", a:"YOUR MUM", b:"YOUR DAD", spicy:"a"},
-  {q:"WHICH IS MORE OVERRATED?", a:"AVOCADO", b:"SUSHI", spicy:"a"},
-  {q:"BETTER WORKOUT?", a:"GYM", b:"RUNNING", spicy:"a"},
-  {q:"WHO IS THE BETTER SINGER?", a:"ADELE", b:"ED SHEERAN", spicy:"a"},
-  {q:"WHICH WOULD YOU DELETE FOREVER?", a:"MONDAY", b:"HOMEWORK", spicy:"b"},
-  {q:"BETTER VIDEO GAME?", a:"MINECRAFT", b:"FORTNITE", spicy:"a"},
-  {q:"WHO WOULD WIN STRICTLY?", a:"YOUR DAD", b:"A PENGUIN", spicy:"b"},
-  {q:"WHICH IS THE BIGGER LIE?", a:"\"I'M FINE\"", b:"\"5 MORE MINUTES\"", spicy:"b"},
-  {q:"BETTER SEASON?", a:"SUMMER", b:"WINTER", spicy:"a"},
-  {q:"WHO WOULD BE A WORSE UBER DRIVER?", a:"LIGHTNING MCQUEEN", b:"MR BEAN", spicy:"b"},
-  {q:"WHICH IS MORE ADDICTIVE?", a:"SCROLLING REELS", b:"ONLINE SHOPPING", spicy:"a"},
-  {q:"BETTER BISCUIT?", a:"OREO", b:"CUSTARD CREAM", spicy:"b"},
-  {q:"WHO WINS IN A DANCE-OFF?", a:"WILL SMITH", b:"CHRIS PRATT", spicy:"a"},
-  {q:"WHICH IS SCARIER?", a:"SPIDERS", b:"PUBLIC SPEAKING", spicy:"b"},
-  {q:"WHO WOULD MAKE A BETTER TEACHER?", a:"SNOOP DOGG", b:"DWAYNE JOHNSON", spicy:"a"},
-  {q:"WHICH IS THE WORSE PUNISHMENT?", a:"NO MUSIC FOR A MONTH", b:"NO GAMING FOR A MONTH", spicy:"b"},
+  // --- 2 options ---
+  {q:"WHO WOULD WIN IN A FIGHT?", opts:["BATMAN","SPIDER-MAN"], spicy:1},
+  {q:"WHICH IS THE BETTER PIZZA TOPPING?", opts:["PINEAPPLE","PEPPERONI"], spicy:0},
+  {q:"WHO IS THE GOAT?", opts:["MESSI","RONALDO"], spicy:0},
+  {q:"WHICH SUPERPOWER WOULD YOU CHOOSE?", opts:["FLY","INVISIBILITY"], spicy:1},
+  {q:"BETTER BREAKFAST?", opts:["PANCAKES","WAFFLES"], spicy:1},
+  {q:"WHO WOULD SURVIVE A ZOMBIE APOCALYPSE?", opts:["YOUR MUM","YOUR DAD"], spicy:0},
+  {q:"BETTER PET?", opts:["CATS","DOGS"], spicy:0},
+  {q:"WHO IS FUNNIER?", opts:["KEVIN HART","THE ROCK"], spicy:1},
+  {q:"WHICH IS WORSE?", opts:["NO WIFI FOR A YEAR","NO PHONE FOR A YEAR"], spicy:0},
+  {q:"WHO WINS IN A RAP BATTLE?", opts:["EMINEM","DRAKE"], spicy:0},
+  {q:"BETTER MOVIE FRANCHISE?", opts:["MARVEL","DC"], spicy:1},
+  {q:"WHICH IS MORE PAINFUL?", opts:["STEPPING ON LEGO","BITING YOUR TONGUE"], spicy:0},
+  {q:"WHO WOULD YOU TRUST TO COOK?", opts:["GORDON RAMSAY","YOUR BEST FRIEND"], spicy:1},
+  {q:"WHICH IS THE BIGGER RED FLAG?", opts:["DOUBLE TEXTING","NEVER TEXTING FIRST"], spicy:0},
+  {q:"WHICH WOULD YOU GIVE UP FOREVER?", opts:["CHOCOLATE","CHEESE"], spicy:1},
+  {q:"BETTER SOCIAL MEDIA?", opts:["TIKTOK","INSTAGRAM"], spicy:0},
+  {q:"WHO WOULD WIN THE HUNGER GAMES?", opts:["YOU","YOUR SIBLING"], spicy:1},
+  {q:"WHICH IS MORE ANNOYING?", opts:["SLOW WALKERS","LOUD CHEWERS"], spicy:1},
+  {q:"WHICH IS THE BIGGER FLEX?", opts:["RICH","FAMOUS"], spicy:1},
+  {q:"BETTER CANDY?", opts:["SKITTLES","M&Ms"], spicy:0},
+  {q:"WHO WOULD BE A WORSE PRESIDENT?", opts:["KANYE","MR BEAST"], spicy:0},
+  {q:"BETTER TV SHOW?", opts:["FRIENDS","THE OFFICE"], spicy:1},
+  {q:"WHO WOULD YOU WANT AS A ROOMMATE?", opts:["SHREK","DONKEY"], spicy:1},
+  {q:"WHICH IS WORSE ON A DATE?", opts:["BAD BREATH","BAD JOKES"], spicy:1},
+  {q:"BETTER FAST FOOD?", opts:["MCDONALD'S","KFC"], spicy:0},
+  {q:"WHICH WOULD YOU RATHER FIGHT?", opts:["100 DUCK-SIZED HORSES","1 HORSE-SIZED DUCK"], spicy:1},
+  {q:"WHO HAS BETTER FANS?", opts:["TAYLOR SWIFT","BEYONCÉ"], spicy:0},
+  {q:"WHICH IS MORE CRINGE?", opts:["DAD JOKES","PICKUP LINES"], spicy:1},
+  {q:"BETTER SCHOOL SUBJECT?", opts:["PE","LUNCH"], spicy:1},
+  {q:"WHO WOULD SURVIVE ON A DESERT ISLAND?", opts:["BEAR GRYLLS","YOUR NAN"], spicy:1},
+  {q:"BETTER ANIMATED MOVIE?", opts:["SHREK","TOY STORY"], spicy:0},
+  {q:"WHICH WOULD YOU DELETE FOREVER?", opts:["MONDAY","HOMEWORK"], spicy:1},
+  {q:"BETTER VIDEO GAME?", opts:["MINECRAFT","FORTNITE"], spicy:0},
+  {q:"WHO WOULD WIN STRICTLY?", opts:["YOUR DAD","A PENGUIN"], spicy:1},
+  {q:"WHICH IS THE BIGGER LIE?", opts:["\"I'M FINE\"","\"5 MORE MINUTES\""], spicy:1},
+  {q:"WHO WOULD BE A WORSE UBER DRIVER?", opts:["LIGHTNING MCQUEEN","MR BEAN"], spicy:1},
+  {q:"WHICH IS SCARIER?", opts:["SPIDERS","PUBLIC SPEAKING"], spicy:1},
+  {q:"WHO WOULD MAKE A BETTER TEACHER?", opts:["SNOOP DOGG","DWAYNE JOHNSON"], spicy:0},
+  {q:"WHICH IS MORE ADDICTIVE?", opts:["SCROLLING REELS","ONLINE SHOPPING"], spicy:0},
+  {q:"BETTER BISCUIT?", opts:["OREO","CUSTARD CREAM"], spicy:1},
+  {q:"WHO WINS IN A DANCE-OFF?", opts:["WILL SMITH","CHRIS PRATT"], spicy:0},
+  {q:"WHO IS THE BEST DISNEY VILLAIN?", opts:["SCAR","MALEFICENT"], spicy:0},
+  {q:"ULTIMATE COMFORT FOOD?", opts:["MAC & CHEESE","CHICKEN NUGGETS"], spicy:0},
+  {q:"BETTER WORKOUT?", opts:["GYM","RUNNING"], spicy:0},
+  {q:"BETTER SEASON?", opts:["SUMMER","WINTER"], spicy:0},
+  // --- 3 options ---
+  {q:"WHO WILL WIN THE 2026 WORLD CUP?", opts:["BRAZIL","ARGENTINA","ENGLAND"], spicy:2},
+  {q:"BEST CHRIS IN HOLLYWOOD?", opts:["HEMSWORTH","EVANS","PRATT"], spicy:2},
+  {q:"BEST HOGWARTS HOUSE?", opts:["GRYFFINDOR","SLYTHERIN","HUFFLEPUFF"], spicy:2},
+  {q:"BEST MEAL OF THE DAY?", opts:["BREAKFAST","LUNCH","DINNER"], spicy:0},
+  {q:"WORST CHORE?", opts:["WASHING UP","HOOVERING","IRONING"], spicy:2},
+  {q:"BEST WAY TO TRAVEL?", opts:["PLANE","TRAIN","ROAD TRIP"], spicy:2},
+  {q:"WHO WOULD WIN THE BAKE OFF?", opts:["YOUR MUM","YOUR DAD","YOUR NAN"], spicy:2},
+  {q:"BEST MUSIC GENRE?", opts:["HIP-HOP","POP","ROCK"], spicy:0},
+  {q:"BEST TAKEAWAY?", opts:["CHINESE","INDIAN","PIZZA"], spicy:1},
+  {q:"BEST STARTER POKÉMON?", opts:["CHARMANDER","SQUIRTLE","BULBASAUR"], spicy:2},
+  {q:"BEST SANDWICH FILLING?", opts:["CHICKEN","TUNA","BLT"], spicy:1},
+  {q:"BEST BRITISH SITCOM?", opts:["THE INBETWEENERS","FRIDAY NIGHT DINNER","PEEP SHOW"], spicy:0},
+  {q:"BEST PIZZA BASE?", opts:["THIN CRUST","DEEP DISH","STUFFED CRUST"], spicy:2},
+  {q:"WORST AIRPORT EXPERIENCE?", opts:["DELAYS","LOST LUGGAGE","MIDDLE SEAT"], spicy:2},
+  // --- 4 options ---
+  {q:"BEST NINJA TURTLE?", opts:["LEONARDO","DONATELLO","RAPHAEL","MICHELANGELO"], spicy:3},
+  {q:"WHO WOULD WIN SQUID GAME?", opts:["YOUR MUM","YOUR DAD","YOUR TEACHER","YOUR BOSS"], spicy:0},
+  {q:"BEST SEASON OF THE YEAR?", opts:["SPRING","SUMMER","AUTUMN","WINTER"], spicy:2},
+  {q:"BEST ICE CREAM FLAVOUR?", opts:["VANILLA","CHOCOLATE","STRAWBERRY","MINT CHOC CHIP"], spicy:3},
+  {q:"WHO WOULD BE THE BEST PM?", opts:["MR BEAST","KSI","GORDON RAMSAY","DAVID ATTENBOROUGH"], spicy:0},
+  {q:"BEST MONOPOLY PIECE?", opts:["TOP HAT","DOG","CAR","BOOT"], spicy:3},
+  {q:"BEST CRISP BRAND?", opts:["WALKERS","PRINGLES","DORITOS","KETTLE"], spicy:1},
+  {q:"BEST EMOJI?", opts:["😂","💀","🔥","👀"], spicy:1},
+  {q:"BEST SCHOOL YEAR?", opts:["YEAR 7","YEAR 9","YEAR 11","SIXTH FORM"], spicy:1},
+  {q:"WORST HOUSEHOLD JOB?", opts:["BINS","DISHES","LAUNDRY","COOKING"], spicy:0},
+  {q:"BEST SLEEPING POSITION?", opts:["BACK","SIDE","FRONT","FOETAL"], spicy:3},
+  {q:"BEST WAY TO EAT POTATO?", opts:["CHIPS","MASHED","ROASTED","BAKED"], spicy:0},
+  {q:"BEST DISNEY PRINCESS?", opts:["MULAN","RAPUNZEL","MOANA","ELSA"], spicy:0},
+  {q:"WHO WOULD WIN LOVE ISLAND?", opts:["YOUR MUM","YOUR TEACHER","YOUR BOSS","YOUR NAN"], spicy:3},
+  // --- 5 options ---
+  {q:"BEST MARVEL AVENGER?", opts:["IRON MAN","THOR","HULK","SPIDER-MAN","CAPTAIN AMERICA"], spicy:2},
+  {q:"BEST CHOCOLATE BAR?", opts:["SNICKERS","TWIX","KIT KAT","DAIRY MILK","MARS"], spicy:0},
+  {q:"BEST FAST FOOD CHAIN?", opts:["MCDONALD'S","KFC","BURGER KING","NANDO'S","FIVE GUYS"], spicy:3},
+  {q:"BEST OLYMPIC SPORT?", opts:["SPRINTING","SWIMMING","GYMNASTICS","SKATEBOARDING","BREAKDANCING"], spicy:4},
+  {q:"BEST SCHOOL LUNCH?", opts:["PIZZA","FISH FINGERS","TURKEY DINOSAURS","JACKET POTATO","PASTA"], spicy:2},
+  {q:"BEST APP ON YOUR PHONE?", opts:["TIKTOK","INSTAGRAM","YOUTUBE","SPOTIFY","WHATSAPP"], spicy:0},
+  {q:"BEST CARD GAME?", opts:["UNO","POKER","SNAP","GO FISH","CHEAT"], spicy:4},
+  {q:"BEST THEME PARK?", opts:["DISNEY WORLD","ALTON TOWERS","THORPE PARK","UNIVERSAL","LEGOLAND"], spicy:4},
+  {q:"BEST PET TO OWN?", opts:["DOG","CAT","HAMSTER","FISH","SNAKE"], spicy:4},
+  {q:"BEST MILKSHAKE?", opts:["CHOCOLATE","STRAWBERRY","BANANA","VANILLA","OREO"], spicy:4},
+  // --- 6 options ---
+  {q:"BEST CONTINENT TO LIVE ON?", opts:["EUROPE","NORTH AMERICA","SOUTH AMERICA","ASIA","AFRICA","AUSTRALIA"], spicy:5},
+  {q:"WHO WILL WIN THE BALLON D'OR 2026?", opts:["MBAPPE","HAALAND","BELLINGHAM","VINICIUS JR","SAKA","YAMAL"], spicy:4},
+  {q:"BEST BOARD GAME?", opts:["MONOPOLY","SCRABBLE","CLUEDO","RISK","TRIVIAL PURSUIT","CONNECT 4"], spicy:3},
+  {q:"BEST PIZZA TOPPING COMBO?", opts:["MARGHERITA","PEPPERONI","BBQ CHICKEN","HAWAIIAN","MEAT FEAST","VEGGIE"], spicy:3},
+  {q:"BEST WAY TO SPEND A SUNDAY?", opts:["SLEEP IN","ROAST DINNER","FOOTBALL","GAMING","CINEMA","SHOPPING"], spicy:0},
+  {q:"BEST CEREAL?", opts:["COCO POPS","WEETABIX","FROSTIES","CHEERIOS","GRANOLA","CRUNCHY NUT"], spicy:0},
+  // --- 7+ options ---
+  {q:"BEST DAY OF THE WEEK?", opts:["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"], spicy:0},
+  {q:"BEST FRIENDS CHARACTER?", opts:["ROSS","RACHEL","JOEY","CHANDLER","MONICA","PHOEBE"], spicy:2},
+  {q:"WHO WILL WIN THE PREMIER LEAGUE 2026?", opts:["ARSENAL","MAN CITY","LIVERPOOL","CHELSEA","MAN UTD","NEWCASTLE","SPURS","ASTON VILLA"], spicy:6},
+  {q:"BEST HARRY POTTER MOVIE?", opts:["PHILOSOPHER'S STONE","CHAMBER OF SECRETS","PRISONER OF AZKABAN","GOBLET OF FIRE","ORDER OF PHOENIX","HALF-BLOOD PRINCE","DEATHLY HALLOWS 1","DEATHLY HALLOWS 2"], spicy:2},
+  {q:"BEST MARIO KART CHARACTER?", opts:["MARIO","LUIGI","PEACH","TOAD","YOSHI","BOWSER","DONKEY KONG","WALUIGI"], spicy:7},
+  {q:"BEST MONTH OF THE YEAR?", opts:["JANUARY","MARCH","JUNE","JULY","AUGUST","OCTOBER","DECEMBER"], spicy:5},
+  {q:"BEST FRUIT?", opts:["STRAWBERRY","MANGO","BANANA","WATERMELON","GRAPES","PINEAPPLE","APPLE"], spicy:1},
+  {q:"WHICH COUNTRY HAS THE BEST FOOD?", opts:["ITALY","MEXICO","JAPAN","INDIA","FRANCE","THAILAND","USA","CHINA"], spicy:6},
+  {q:"BEST OFFICE CHARACTER?", opts:["MICHAEL","DWIGHT","JIM","PAM","KEVIN","CREED","ANDY"], spicy:5},
+  {q:"BEST PIXAR MOVIE?", opts:["TOY STORY","FINDING NEMO","UP","INSIDE OUT","MONSTERS INC","THE INCREDIBLES","WALL-E","RATATOUILLE","COCO"], spicy:6},
+  {q:"WHO WOULD WIN CELEBRITY BIG BROTHER?", opts:["SNOOP DOGG","GORDON RAMSAY","DWAYNE JOHNSON","KEVIN HART","RYAN REYNOLDS","JACK BLACK"], spicy:5},
+  {q:"BEST STARTER IN EVERY GEN?", opts:["CHARMANDER","TOTODILE","MUDKIP","CHIMCHAR","FROAKIE","ROWLET","FUECOCO"], spicy:2},
+  {q:"BEST SWEET TREAT?", opts:["ICE CREAM","CAKE","DONUTS","BROWNIES","COOKIES","WAFFLES","CHURROS","CRÊPES"], spicy:6},
+  {q:"BEST KARAOKE SONG?", opts:["BOHEMIAN RHAPSODY","MR BRIGHTSIDE","SWEET CAROLINE","DON'T STOP BELIEVIN'","WONDERWALL","DANCING QUEEN"], spicy:4},
+  {q:"BEST CARTOON EVER?", opts:["SPONGEBOB","TOM & JERRY","SIMPSONS","AVATAR","ADVENTURE TIME","PHINEAS & FERB","SCOOBY-DOO"], spicy:0},
+  {q:"BEST SANDWICH SHOP?", opts:["SUBWAY","GREGGS","PRET","DELI","HOMEMADE"], spicy:1},
+  {q:"BEST GYM EXERCISE?", opts:["BENCH PRESS","SQUATS","DEADLIFT","PULL-UPS","BICEP CURLS","LEG PRESS"], spicy:4},
 ];
 
 let creatorMode = false;
-let creatorQ = null;
-let creatorBiasPlayer = null; // index of the "spicy" player to bias towards
+let creatorQ = null;         // {q, opts, spicy}
+let creatorBiasPlayer = null;
+let creatorWinnerName = null;
+let creatorGameTimer = null;
+let creatorRevealed = false;
 
+// ---- Init ----
 function initCreatorMode() {
   const params = new URLSearchParams(window.location.search);
   if (params.get('creator') !== 'true') return;
   creatorMode = true;
-  // Skip splash — go straight to creator hook
   const splash = document.getElementById('splashScreen');
   if (splash) { splash.style.display = 'none'; splash.classList.remove('active'); }
+  showCreatorSetup();
+}
+
+// ---- Dynamic option inputs ----
+let crOptCount = 0;
+function crBuildOptInputs(prefill) {
+  const area = document.getElementById('crOptsArea');
+  area.innerHTML = '';
+  crOptCount = 0;
+  const vals = prefill || ['',''];
+  vals.forEach(v => crAddOptInput(v));
+  // Add the "+ ADD OPTION" button
+  crUpdateAddBtn();
+}
+function crAddOptInput(val) {
+  if (crOptCount >= 10) return;
+  const area = document.getElementById('crOptsArea');
+  // Remove add-btn if present (re-append after)
+  const oldAdd = area.querySelector('.cr-add-btn');
+  if (oldAdd) oldAdd.remove();
+
+  crOptCount++;
+  const row = document.createElement('div');
+  row.className = 'cr-opt-row';
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.maxLength = 24; inp.autocomplete = 'off';
+  inp.placeholder = 'OPTION ' + crOptCount;
+  inp.value = val || '';
+  inp.className = 'cr-opt-input';
+  inp.oninput = crCheckGo;
+  row.appendChild(inp);
+
+  // Show remove button only if more than 2 options
+  if (crOptCount > 2) {
+    const rem = document.createElement('button');
+    rem.className = 'cr-opt-remove';
+    rem.textContent = '✕';
+    rem.onclick = () => { row.remove(); crOptCount--; crRenumberOpts(); crCheckGo(); crUpdateAddBtn(); };
+    row.appendChild(rem);
+  }
+  area.appendChild(row);
+  crUpdateAddBtn();
+}
+function crUpdateAddBtn() {
+  const area = document.getElementById('crOptsArea');
+  let addBtn = area.querySelector('.cr-add-btn');
+  if (addBtn) addBtn.remove();
+  if (crOptCount < 10) {
+    addBtn = document.createElement('button');
+    addBtn.className = 'cr-add-btn';
+    addBtn.textContent = '+ ADD OPTION';
+    addBtn.onclick = () => { crAddOptInput(''); };
+    area.appendChild(addBtn);
+  }
+}
+function crRenumberOpts() {
+  const inputs = document.querySelectorAll('#crOptsArea .cr-opt-input');
+  inputs.forEach((inp, i) => { inp.placeholder = 'OPTION ' + (i + 1); });
+  // Show/hide remove buttons (only if >2)
+  const rows = document.querySelectorAll('#crOptsArea .cr-opt-row');
+  rows.forEach(row => {
+    const rem = row.querySelector('.cr-opt-remove');
+    if (rows.length <= 2 && rem) rem.style.display = 'none';
+    else if (rem) rem.style.display = '';
+  });
+}
+function crGetOpts() {
+  return Array.from(document.querySelectorAll('#crOptsArea .cr-opt-input'))
+    .map(inp => inp.value.trim().toUpperCase())
+    .filter(v => v.length > 0);
+}
+function crCheckGo() {
+  const opts = crGetOpts();
+  document.getElementById('crGoBtn').disabled = opts.length < 2;
+}
+
+// ---- Setup screen ----
+function showCreatorSetup() {
+  const setup = document.getElementById('creatorSetupScreen');
+  const inputQ = document.getElementById('crInputQ');
+  const sugDiv = document.getElementById('crSuggestions');
+
+  inputQ.value = '';
+  creatorRevealed = false;
+  creatorQ = null;
+
+  // Build 2 empty option inputs
+  crBuildOptInputs();
+
+  // Build suggestion buttons (shuffled)
+  sugDiv.innerHTML = '';
+  const shuffled = [...CREATOR_QUESTIONS].sort(() => Math.random() - 0.5);
+  shuffled.forEach(q => {
+    const btn = document.createElement('button');
+    btn.className = 'cr-sug-btn';
+    btn.innerHTML = `<span class="cr-sug-q">${q.q}</span><span class="cr-sug-opts">${q.opts.join(' vs ')}</span>`;
+    btn.onclick = () => {
+      inputQ.value = q.q;
+      crBuildOptInputs(q.opts);
+      creatorQ = q;
+      crCheckGo();
+      setup.scrollTo({top: 0, behavior: 'smooth'});
+    };
+    sugDiv.appendChild(btn);
+  });
+
+  setup.classList.add('active');
+}
+
+// ---- Launch ----
+function creatorLaunch() {
+  const inputQ = document.getElementById('crInputQ');
+  const opts = crGetOpts();
+  if (opts.length < 2) return;
+  const q = inputQ.value.trim().toUpperCase() || opts.join(' vs ') + '?';
+
+  // Check if a suggestion was selected and still matches
+  if (creatorQ && creatorQ.opts.length === opts.length && creatorQ.opts.every((o,i) => o === opts[i])) {
+    creatorQ = {...creatorQ, q};
+  } else {
+    // Custom question — random spicy
+    creatorQ = {q, opts, spicy: Math.floor(Math.random() * opts.length)};
+  }
+
+  // Pre-decide winner (70% bias towards spicy)
+  creatorBiasPlayer = creatorQ.spicy;
+  let winnerIdx;
+  if (Math.random() < 0.7) {
+    winnerIdx = creatorBiasPlayer;
+  } else {
+    // Pick a random non-spicy option
+    const others = opts.map((_,i) => i).filter(i => i !== creatorBiasPlayer);
+    winnerIdx = others[Math.floor(Math.random() * others.length)];
+  }
+  creatorWinnerName = creatorQ.opts[winnerIdx];
+
+  // Set players
+  players = [...creatorQ.opts];
+  playersPicked = 1;
+
+  document.getElementById('creatorSetupScreen').classList.remove('active');
   showCreatorHook();
 }
 
+// ---- Hook screen (4s) ----
 function showCreatorHook() {
-  // Pick a random question
-  creatorQ = CREATOR_QUESTIONS[Math.floor(Math.random() * CREATOR_QUESTIONS.length)];
-
   const hookEl = document.getElementById('creatorHookScreen');
   const qEl = document.getElementById('crQuestion');
-  const aEl = document.getElementById('crOptionA');
-  const bEl = document.getElementById('crOptionB');
+  const optsDiv = document.getElementById('crHookOpts');
 
   qEl.textContent = creatorQ.q;
-  aEl.textContent = creatorQ.a;
-  bEl.textContent = creatorQ.b;
 
-  // Trigger entrance animations
+  // Build dynamic option list with VS dividers
+  optsDiv.innerHTML = '';
+  creatorQ.opts.forEach((opt, i) => {
+    if (i > 0) {
+      const vs = document.createElement('div');
+      vs.className = 'cr-hook-vs';
+      vs.textContent = 'VS';
+      optsDiv.appendChild(vs);
+    }
+    const el = document.createElement('div');
+    el.className = 'cr-hook-opt';
+    el.textContent = opt;
+    // Stagger entrance
+    el.style.animation = `crSlideLeft 0.4s ease-out ${0.3 + i * 0.25}s both`;
+    if (i % 2 === 1) el.style.animationName = 'crSlideRight';
+    optsDiv.appendChild(el);
+  });
+
   hookEl.classList.remove('cr-hook-enter');
   void hookEl.offsetWidth;
   hookEl.classList.add('cr-hook-enter');
   hookEl.classList.add('active');
 
-  // Set up players as the two options
-  players = [creatorQ.a, creatorQ.b];
-  playersPicked = 1;
-  // Determine which player index is the "spicy" one to bias towards
-  creatorBiasPlayer = creatorQ.spicy === 'a' ? 0 : 1;
+  // Scale font if many options
+  const fontSize = creatorQ.opts.length <= 3 ? '' : creatorQ.opts.length <= 5 ? '0.85em' : '0.7em';
+  optsDiv.querySelectorAll('.cr-hook-opt').forEach(el => { if (fontSize) el.style.fontSize = fontSize; });
 
-  // Auto-advance to game after hook displays for 4 seconds
   setTimeout(() => {
-    hookEl.classList.remove('active');
+    hookEl.classList.remove('active', 'cr-hook-enter');
     creatorStartGame();
   }, 4000);
 }
 
+// ---- Game phase ----
 function creatorStartGame() {
-  // Pick a random action game for the reel
   const creatorGames = ['marble', 'battle', 'horses', 'engulf', 'ships'];
   const pick = creatorGames[Math.floor(Math.random() * creatorGames.length)];
   enabledGames = [pick];
   initAudio();
+  creatorRevealed = false;
   startGame(pick);
 
-  // Auto-end the game after 7 seconds — trigger winner
-  setTimeout(() => {
-    if (!creatorMode) return;
-    creatorForceWinner();
-  }, 7000);
+  creatorGameTimer = setTimeout(() => {
+    if (!creatorMode || creatorRevealed) return;
+    creatorRevealed = true;
+    if (currentGameCleanup) { currentGameCleanup(); currentGameCleanup = null; }
+    stopAllMusic();
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    showCreatorReveal(creatorWinnerName);
+  }, 8000);
 }
 
-function creatorForceWinner() {
-  // Determine winner with bias towards spicy answer (70% chance)
-  const biasRoll = Math.random();
-  const winnerIdx = biasRoll < 0.7 ? creatorBiasPlayer : (1 - creatorBiasPlayer);
-  const winnerName = players[winnerIdx];
-
-  // Clean up any running game
-  if (currentGameCleanup) { currentGameCleanup(); currentGameCleanup = null; }
+// ---- Reveal screen ----
+function showCreatorReveal(winnerName) {
+  if (creatorGameTimer) { clearTimeout(creatorGameTimer); creatorGameTimer = null; }
   stopAllMusic();
 
-  // Show dramatic reveal instead of normal winner screen
-  showCreatorReveal(winnerName);
-}
-
-function showCreatorReveal(winnerName) {
   const revealEl = document.getElementById('creatorRevealScreen');
   const answerEl = document.getElementById('crRevealAnswer');
   const questionEl = document.getElementById('crRevealQuestion');
   const labelEl = document.getElementById('crRevealLabel');
 
-  // Hide all game screens
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
 
   answerEl.textContent = winnerName;
   questionEl.textContent = creatorQ.q;
 
-  // Random dramatic label
   const labels = [
     'THE MACHINE HAS SPOKEN',
     'IT IS DECIDED',
@@ -8205,18 +8454,16 @@ function showCreatorReveal(winnerName) {
   ];
   labelEl.textContent = labels[Math.floor(Math.random() * labels.length)];
 
-  // Trigger entrance animation
   revealEl.classList.remove('cr-reveal-enter');
   void revealEl.offsetWidth;
   revealEl.classList.add('cr-reveal-enter');
   revealEl.classList.add('active');
 
-  // Play dramatic reveal sound
+  // Dramatic sound
   try {
     initAudio();
     if (audioCtx) {
       const t0 = audioCtx.currentTime;
-      // Dramatic rising sweep
       const osc = audioCtx.createOscillator();
       const g = audioCtx.createGain();
       osc.type = 'sawtooth';
@@ -8227,11 +8474,9 @@ function showCreatorReveal(winnerName) {
       g.gain.exponentialRampToValueAtTime(0.001, t0 + 1.2);
       osc.connect(g); g.connect(audioCtx.destination);
       osc.start(t0); osc.stop(t0 + 1.3);
-      // Impact hit
       const osc2 = audioCtx.createOscillator();
       const g2 = audioCtx.createGain();
-      osc2.type = 'square';
-      osc2.frequency.value = 180;
+      osc2.type = 'square'; osc2.frequency.value = 180;
       g2.gain.setValueAtTime(0.35, t0 + 0.6);
       g2.gain.exponentialRampToValueAtTime(0.001, t0 + 1.4);
       osc2.connect(g2); g2.connect(audioCtx.destination);
@@ -8239,7 +8484,7 @@ function showCreatorReveal(winnerName) {
     }
   } catch(e) {}
 
-  // Spawn sparkle particles
+  // Sparkles
   for (let i = 0; i < 30; i++) {
     const spark = document.createElement('div');
     spark.className = 'cr-sparkle';
@@ -8247,37 +8492,37 @@ function showCreatorReveal(winnerName) {
     const dist = 80 + Math.random() * 160;
     spark.style.setProperty('--sx', Math.cos(angle) * dist + 'px');
     spark.style.setProperty('--sy', Math.sin(angle) * dist + 'px');
-    spark.style.left = '50%';
-    spark.style.top = '50%';
+    spark.style.left = '50%'; spark.style.top = '50%';
     spark.style.animationDelay = (Math.random() * 0.5) + 's';
     spark.style.background = ['#f5a623','#e94560','#2ecc71','#3498db','#fff'][Math.floor(Math.random()*5)];
     revealEl.appendChild(spark);
   }
 
-  // After 5 seconds, reset for next reel or loop back to hook
+  // Back to setup for next reel
   setTimeout(() => {
-    // Clean up sparkles
     revealEl.querySelectorAll('.cr-sparkle').forEach(s => s.remove());
     revealEl.classList.remove('active', 'cr-reveal-enter');
-    showCreatorHook();
-  }, 5000);
+    resetGame();
+    showCreatorSetup();
+  }, 4000);
 }
 
-// Override showWinner in creator mode to redirect to reveal
+// ---- Override showWinner ----
 const _originalShowWinner = showWinner;
 showWinner = function(name) {
   if (creatorMode) {
-    const winName = Array.isArray(name) ? name[0] : name;
+    if (creatorRevealed) return;
+    creatorRevealed = true;
+    if (creatorGameTimer) { clearTimeout(creatorGameTimer); creatorGameTimer = null; }
     if (currentGameCleanup) { currentGameCleanup(); currentGameCleanup = null; }
-    showCreatorReveal(winName);
+    showCreatorReveal(creatorWinnerName);
     return;
   }
   _originalShowWinner(name);
 };
 
-// Boot creator mode on load
+// Boot
 document.addEventListener('DOMContentLoaded', () => {
-  // Small delay to let splash init first
   setTimeout(initCreatorMode, 100);
 });
 </script>
