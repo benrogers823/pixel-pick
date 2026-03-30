@@ -8595,32 +8595,21 @@ function sfxVsSlam() {
   sub.start(t); sub.stop(t + 0.1);
 }
 
-// ---- "THE MACHINE WILL DECIDE" dramatic whoosh ----
+// ---- "THE MACHINE WILL DECIDE" — rapid retro alarm stabs ----
 function sfxMachineDecide() {
   if (!audioCtx) return;
   const t = audioCtx.currentTime;
-  // Rising sweep
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(120, t);
-  osc.frequency.exponentialRampToValueAtTime(900, t + 0.5);
-  g.gain.setValueAtTime(0.3, t);
-  g.gain.setValueAtTime(0.5, t + 0.25);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-  osc.connect(g); g.connect(audioCtx.destination);
-  osc.start(t); osc.stop(t + 0.5);
-  // Noise whoosh
-  const len = audioCtx.sampleRate * 0.5;
-  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
-  const d = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) { const p = i / len; d[i] = (Math.random() * 2 - 1) * Math.sin(p * Math.PI) * 0.4; }
-  const src = audioCtx.createBufferSource();
-  src.buffer = buf;
-  const ng = audioCtx.createGain();
-  ng.gain.setValueAtTime(0.6, t);
-  src.connect(ng); ng.connect(audioCtx.destination);
-  src.start(t);
+  // Three quick alarm stabs, rising pitch
+  [0, 0.1, 0.2].forEach((offset, i) => {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(440 + i * 220, t + offset);
+    g.gain.setValueAtTime(0.7, t + offset);
+    g.gain.exponentialRampToValueAtTime(0.001, t + offset + 0.08);
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.start(t + offset); osc.stop(t + offset + 0.08);
+  });
 }
 
 // ---- Hook screen — question slams in immediately, options follow ----
@@ -8685,13 +8674,14 @@ function showCreatorHook() {
   const decideTime = baseDelay + n * optDelay + 0.3;
   setTimeout(() => { decideEl.style.animation = ''; sfxMachineDecide(); }, decideTime * 1000);
 
-  // Advance to game after 4.5s (give options time to fully reveal)
+  // Advance to game 0.7s after "THE MACHINE WILL DECIDE" appears
+  const totalHookTime = (decideTime + 0.7) * 1000;
   setTimeout(() => {
     hookEl.classList.remove('active');
     hookEl.classList.remove('cr-flash');
     document.getElementById('crParticles').innerHTML = '';
     creatorStartGame();
-  }, 4500);
+  }, totalHookTime);
 }
 
 // ---- Game phase: let game play to natural completion ----
