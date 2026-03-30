@@ -657,10 +657,9 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 .cr-particle { position:absolute; border-radius:50%; opacity:0; animation:crFloat linear infinite; }
 @keyframes crFloat { 0%{transform:translateY(100vh) scale(0); opacity:0;} 10%{opacity:1;} 90%{opacity:1;} 100%{transform:translateY(-20vh) scale(1); opacity:0;} }
 
-/* Question — BIG, centred, glitch flicker */
-.cr-question { font-family:'Press Start 2P',monospace; font-size:clamp(1em,4.5vw,2em); color:#fff; text-shadow:0 0 20px rgba(255,255,255,0.6), 0 0 60px rgba(245,166,35,0.4); text-align:center; max-width:90%; line-height:1.5; z-index:3; animation:crGlitchIn 0.6s ease-out both, crTextPulse 3s ease-in-out infinite 0.6s; }
-@keyframes crGlitchIn { 0%{opacity:0; transform:translateY(-30px) skewX(-8deg); filter:blur(6px);} 30%{opacity:1; transform:translateY(4px) skewX(3deg); filter:blur(0);} 50%{transform:translateY(-2px) skewX(-1deg);} 100%{transform:translateY(0) skewX(0);} }
-@keyframes crTextPulse { 0%,100%{text-shadow:0 0 20px rgba(255,255,255,0.6), 0 0 60px rgba(245,166,35,0.4);} 50%{text-shadow:0 0 30px rgba(255,255,255,0.9), 0 0 80px rgba(245,166,35,0.7), 0 0 120px rgba(233,69,96,0.3);} }
+/* Question — BIG, centred, slams in */
+.cr-question { font-family:'Press Start 2P',monospace; font-size:clamp(1.4em,5.5vw,2.8em); color:#fff; text-shadow:0 0 30px rgba(255,255,255,0.8), 0 0 80px rgba(245,166,35,0.6); text-align:center; max-width:88%; line-height:1.45; z-index:3; animation:crQuestionSlam 0.5s cubic-bezier(.15,1.4,.5,1) both, crTextPulse 2.5s ease-in-out infinite 0.5s; }
+@keyframes crTextPulse { 0%,100%{text-shadow:0 0 30px rgba(255,255,255,0.8), 0 0 80px rgba(245,166,35,0.6);} 50%{text-shadow:0 0 50px #fff, 0 0 100px rgba(245,166,35,0.9), 0 0 160px rgba(233,69,96,0.4);} }
 
 /* Options container */
 #crHookOpts { display:flex; flex-direction:column; align-items:center; gap:0; z-index:3; width:100%; margin-top:10px; }
@@ -682,6 +681,10 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 @keyframes crSlideInR { 0%{transform:translateX(60px);opacity:0;} 100%{transform:translateX(0);opacity:1;} }
 @keyframes crVsSlam { 0%{transform:scale(2.5);opacity:0;} 60%{transform:scale(0.9);} 100%{transform:scale(1);opacity:1;} }
 @keyframes crFadeIn { 0%{opacity:0;} 100%{opacity:1;} }
+@keyframes crOptionGlow { 0%{text-shadow:0 0 10px currentColor;} 100%{text-shadow:0 0 30px currentColor, 0 0 60px currentColor;} }
+@keyframes crQuestionSlam { 0%{transform:scale(2.8) translateY(-15px);opacity:0;filter:blur(10px);} 35%{transform:scale(0.96);opacity:1;filter:blur(0);} 50%{transform:scale(1.04);} 65%{transform:scale(0.99);} 100%{transform:scale(1);opacity:1;} }
+@keyframes crScreenFlash { 0%{background:#fff;} 8%{background:#e8f0ff;} 20%{background:#0a0a1a;} 40%{background:#110820;} 100%{background:#0a0a1a;} }
+#creatorHookScreen.cr-flash { animation:crScreenFlash 0.55s ease-out both; }
 
 /* === CREATOR REVEAL SCREEN === */
 #creatorRevealScreen { position:fixed; inset:0; z-index:10001; background:#0a0a1a; display:none; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; }
@@ -8464,7 +8467,49 @@ function crSpawnParticles() {
   }
 }
 
-// ---- Hook screen (4s) — big question, staggered option reveals, never static ----
+// ---- Loud retro computer "SLAM" sound for question reveal ----
+function sfxQuestionSlam() {
+  if (!audioCtx) initAudio();
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+
+  // Big white-noise impact burst
+  const bufLen = audioCtx.sampleRate * 0.18;
+  const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufLen);
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buf;
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(1.8, t);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+  noise.connect(noiseGain); noiseGain.connect(audioCtx.destination);
+  noise.start(t);
+
+  // Deep thudding sub tone
+  const sub = audioCtx.createOscillator();
+  const subGain = audioCtx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(90, t);
+  sub.frequency.exponentialRampToValueAtTime(30, t + 0.25);
+  subGain.gain.setValueAtTime(2.5, t);
+  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+  sub.connect(subGain); subGain.connect(audioCtx.destination);
+  sub.start(t); sub.stop(t + 0.25);
+
+  // High-pitched retro zap sweep
+  const zap = audioCtx.createOscillator();
+  const zapGain = audioCtx.createGain();
+  zap.type = 'sawtooth';
+  zap.frequency.setValueAtTime(1800, t);
+  zap.frequency.exponentialRampToValueAtTime(220, t + 0.3);
+  zapGain.gain.setValueAtTime(0.6, t);
+  zapGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  zap.connect(zapGain); zapGain.connect(audioCtx.destination);
+  zap.start(t); zap.stop(t + 0.3);
+}
+
+// ---- Hook screen — question slams in immediately, options follow ----
 function showCreatorHook() {
   const hookEl = document.getElementById('creatorHookScreen');
   const qEl = document.getElementById('crQuestion');
@@ -8474,21 +8519,30 @@ function showCreatorHook() {
   // Spawn background particles
   crSpawnParticles();
 
-  // Question appears immediately with glitch animation (handled by CSS)
-  qEl.textContent = creatorQ.q;
-  qEl.style.animation = 'none';
-  void qEl.offsetWidth;
-  qEl.style.animation = '';
-
-  // Clear and stagger-build option list
+  // Prep
   optsDiv.innerHTML = '';
   decideEl.style.animation = 'none';
   decideEl.style.opacity = '0';
 
-  // Options appear one by one after a delay, alternating slide direction
+  // Show screen first
+  hookEl.classList.add('active');
+
+  // Question SLAMS in immediately — screen flash + slam sound
+  qEl.textContent = creatorQ.q;
+  qEl.style.animation = 'none';
+  void qEl.offsetWidth;
+  qEl.style.animation = 'crQuestionSlam 0.5s cubic-bezier(.15,1.4,.5,1) both, crTextPulse 2.5s ease-in-out infinite 0.5s';
+
+  hookEl.classList.remove('cr-flash');
+  void hookEl.offsetWidth;
+  hookEl.classList.add('cr-flash');
+
+  sfxQuestionSlam();
+
+  // Options appear one by one after question settles
   const n = creatorQ.opts.length;
-  const optDelay = Math.min(0.35, 1.5 / n); // tighter spacing for many options
-  const baseDelay = 0.8; // question settles first
+  const optDelay = Math.min(0.32, 1.4 / n);
+  const baseDelay = 0.55;
 
   creatorQ.opts.forEach((opt, i) => {
     if (i > 0) {
@@ -8502,7 +8556,7 @@ function showCreatorHook() {
     el.className = 'cr-hook-opt';
     el.textContent = opt;
     const anim = i % 2 === 0 ? 'crSlideInL' : 'crSlideInR';
-    el.style.animation = `${anim} 0.35s ease-out ${baseDelay + i * optDelay}s both, crOptionGlow 1.5s ease-in-out ${baseDelay + i * optDelay + 0.35}s infinite alternate`;
+    el.style.animation = `${anim} 0.32s ease-out ${baseDelay + i * optDelay}s both, crOptionGlow 1.5s ease-in-out ${baseDelay + i * optDelay + 0.32}s infinite alternate`;
     optsDiv.appendChild(el);
   });
 
@@ -8510,20 +8564,17 @@ function showCreatorHook() {
   const fs = n <= 3 ? '' : n <= 5 ? 'clamp(0.6em,2.2vw,1.1em)' : 'clamp(0.45em,1.6vw,0.8em)';
   optsDiv.querySelectorAll('.cr-hook-opt').forEach(el => { if (fs) el.style.fontSize = fs; });
 
-  // "THE MACHINE WILL DECIDE" fades in after all options
+  // "THE MACHINE WILL DECIDE" fades in last
   const decideTime = baseDelay + n * optDelay + 0.3;
-  setTimeout(() => {
-    decideEl.style.animation = '';
-  }, decideTime * 1000);
+  setTimeout(() => { decideEl.style.animation = ''; }, decideTime * 1000);
 
-  hookEl.classList.add('active');
-
-  // Advance to game
+  // Advance to game after 4.5s (give options time to fully reveal)
   setTimeout(() => {
     hookEl.classList.remove('active');
+    hookEl.classList.remove('cr-flash');
     document.getElementById('crParticles').innerHTML = '';
     creatorStartGame();
-  }, 4000);
+  }, 4500);
 }
 
 // ---- Game phase: let game play to natural completion ----
