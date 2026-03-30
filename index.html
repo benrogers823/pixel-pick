@@ -8473,40 +8473,154 @@ function sfxQuestionSlam() {
   if (!audioCtx) return;
   const t = audioCtx.currentTime;
 
-  // Big white-noise impact burst
-  const bufLen = audioCtx.sampleRate * 0.18;
+  // 1. Big white-noise impact burst — louder & longer
+  const bufLen = audioCtx.sampleRate * 0.25;
   const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
   const data = buf.getChannelData(0);
-  for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufLen);
+  for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 0.6);
   const noise = audioCtx.createBufferSource();
   noise.buffer = buf;
   const noiseGain = audioCtx.createGain();
-  noiseGain.gain.setValueAtTime(1.8, t);
-  noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+  noiseGain.gain.setValueAtTime(2.5, t);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
   noise.connect(noiseGain); noiseGain.connect(audioCtx.destination);
   noise.start(t);
 
-  // Deep thudding sub tone
+  // 2. Heavy sub bass — chest thump
   const sub = audioCtx.createOscillator();
   const subGain = audioCtx.createGain();
   sub.type = 'sine';
-  sub.frequency.setValueAtTime(90, t);
-  sub.frequency.exponentialRampToValueAtTime(30, t + 0.25);
-  subGain.gain.setValueAtTime(2.5, t);
-  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+  sub.frequency.setValueAtTime(100, t);
+  sub.frequency.exponentialRampToValueAtTime(25, t + 0.35);
+  subGain.gain.setValueAtTime(3.0, t);
+  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
   sub.connect(subGain); subGain.connect(audioCtx.destination);
-  sub.start(t); sub.stop(t + 0.25);
+  sub.start(t); sub.stop(t + 0.35);
 
-  // High-pitched retro zap sweep
+  // 3. Screaming sawtooth zap sweep — classic retro
   const zap = audioCtx.createOscillator();
   const zapGain = audioCtx.createGain();
   zap.type = 'sawtooth';
-  zap.frequency.setValueAtTime(1800, t);
-  zap.frequency.exponentialRampToValueAtTime(220, t + 0.3);
-  zapGain.gain.setValueAtTime(0.6, t);
-  zapGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  zap.frequency.setValueAtTime(2400, t);
+  zap.frequency.exponentialRampToValueAtTime(180, t + 0.35);
+  zapGain.gain.setValueAtTime(0.9, t);
+  zapGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
   zap.connect(zapGain); zapGain.connect(audioCtx.destination);
-  zap.start(t); zap.stop(t + 0.3);
+  zap.start(t); zap.stop(t + 0.35);
+
+  // 4. Distorted square wave crunch — 2nd layer
+  const crunch = audioCtx.createOscillator();
+  const crunchGain = audioCtx.createGain();
+  const crunchDist = audioCtx.createWaveShaper();
+  const curve = new Float32Array(256);
+  for (let i = 0; i < 256; i++) { const x = (i / 128) - 1; curve[i] = Math.tanh(x * 4); }
+  crunchDist.curve = curve;
+  crunch.type = 'square';
+  crunch.frequency.setValueAtTime(440, t);
+  crunch.frequency.exponentialRampToValueAtTime(55, t + 0.3);
+  crunchGain.gain.setValueAtTime(1.2, t);
+  crunchGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  crunch.connect(crunchDist); crunchDist.connect(crunchGain); crunchGain.connect(audioCtx.destination);
+  crunch.start(t); crunch.stop(t + 0.3);
+
+  // 5. Reverb tail — second noise burst, quieter, slightly delayed
+  const tailLen = audioCtx.sampleRate * 0.4;
+  const tailBuf = audioCtx.createBuffer(1, tailLen, audioCtx.sampleRate);
+  const tailData = tailBuf.getChannelData(0);
+  for (let i = 0; i < tailLen; i++) tailData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / tailLen, 2);
+  const tail = audioCtx.createBufferSource();
+  tail.buffer = tailBuf;
+  const tailGain = audioCtx.createGain();
+  const tailFilter = audioCtx.createBiquadFilter();
+  tailFilter.type = 'lowpass';
+  tailFilter.frequency.setValueAtTime(800, t);
+  tailFilter.frequency.exponentialRampToValueAtTime(200, t + 0.5);
+  tailGain.gain.setValueAtTime(0.8, t + 0.05);
+  tailGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  tail.connect(tailFilter); tailFilter.connect(tailGain); tailGain.connect(audioCtx.destination);
+  tail.start(t + 0.05);
+
+  // 6. High metallic ping — cuts through
+  const ping = audioCtx.createOscillator();
+  const pingGain = audioCtx.createGain();
+  ping.type = 'sine';
+  ping.frequency.setValueAtTime(3200, t);
+  ping.frequency.exponentialRampToValueAtTime(1600, t + 0.15);
+  pingGain.gain.setValueAtTime(0.5, t);
+  pingGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+  ping.connect(pingGain); pingGain.connect(audioCtx.destination);
+  ping.start(t); ping.stop(t + 0.15);
+}
+
+// ---- Blip sound for each option appearing ----
+function sfxOptionBlip(pitch) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(pitch, t);
+  osc.frequency.exponentialRampToValueAtTime(pitch * 0.7, t + 0.08);
+  g.gain.setValueAtTime(0.4, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+  osc.connect(g); g.connect(audioCtx.destination);
+  osc.start(t); osc.stop(t + 0.08);
+}
+
+// ---- VS slam sound ----
+function sfxVsSlam() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  // Short punchy noise
+  const len = audioCtx.sampleRate * 0.06;
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.6, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+  src.connect(g); g.connect(audioCtx.destination);
+  src.start(t);
+  // Low thud
+  const sub = audioCtx.createOscillator();
+  const sg = audioCtx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(120, t);
+  sub.frequency.exponentialRampToValueAtTime(40, t + 0.1);
+  sg.gain.setValueAtTime(0.8, t);
+  sg.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+  sub.connect(sg); sg.connect(audioCtx.destination);
+  sub.start(t); sub.stop(t + 0.1);
+}
+
+// ---- "THE MACHINE WILL DECIDE" dramatic whoosh ----
+function sfxMachineDecide() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  // Rising sweep
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(120, t);
+  osc.frequency.exponentialRampToValueAtTime(900, t + 0.5);
+  g.gain.setValueAtTime(0.3, t);
+  g.gain.setValueAtTime(0.5, t + 0.25);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  osc.connect(g); g.connect(audioCtx.destination);
+  osc.start(t); osc.stop(t + 0.5);
+  // Noise whoosh
+  const len = audioCtx.sampleRate * 0.5;
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) { const p = i / len; d[i] = (Math.random() * 2 - 1) * Math.sin(p * Math.PI) * 0.4; }
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(0.6, t);
+  src.connect(ng); ng.connect(audioCtx.destination);
+  src.start(t);
 }
 
 // ---- Hook screen — question slams in immediately, options follow ----
@@ -8544,6 +8658,7 @@ function showCreatorHook() {
   const optDelay = Math.min(0.32, 1.4 / n);
   const baseDelay = 0.55;
 
+  const pitches = [520, 580, 640, 700, 760, 820, 880, 940, 1000, 1060];
   creatorQ.opts.forEach((opt, i) => {
     if (i > 0) {
       const vs = document.createElement('div');
@@ -8551,6 +8666,7 @@ function showCreatorHook() {
       vs.textContent = 'VS';
       vs.style.animation = `crVsSlam 0.3s ease-out ${baseDelay + i * optDelay - 0.1}s both`;
       optsDiv.appendChild(vs);
+      setTimeout(() => sfxVsSlam(), (baseDelay + i * optDelay - 0.1) * 1000);
     }
     const el = document.createElement('div');
     el.className = 'cr-hook-opt';
@@ -8558,15 +8674,16 @@ function showCreatorHook() {
     const anim = i % 2 === 0 ? 'crSlideInL' : 'crSlideInR';
     el.style.animation = `${anim} 0.32s ease-out ${baseDelay + i * optDelay}s both, crOptionGlow 1.5s ease-in-out ${baseDelay + i * optDelay + 0.32}s infinite alternate`;
     optsDiv.appendChild(el);
+    setTimeout(() => sfxOptionBlip(pitches[i % pitches.length]), (baseDelay + i * optDelay) * 1000);
   });
 
   // Scale font for many options
   const fs = n <= 3 ? '' : n <= 5 ? 'clamp(0.6em,2.2vw,1.1em)' : 'clamp(0.45em,1.6vw,0.8em)';
   optsDiv.querySelectorAll('.cr-hook-opt').forEach(el => { if (fs) el.style.fontSize = fs; });
 
-  // "THE MACHINE WILL DECIDE" fades in last
+  // "THE MACHINE WILL DECIDE" fades in last with whoosh
   const decideTime = baseDelay + n * optDelay + 0.3;
-  setTimeout(() => { decideEl.style.animation = ''; }, decideTime * 1000);
+  setTimeout(() => { decideEl.style.animation = ''; sfxMachineDecide(); }, decideTime * 1000);
 
   // Advance to game after 4.5s (give options time to fully reveal)
   setTimeout(() => {
