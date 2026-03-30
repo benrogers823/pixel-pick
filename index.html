@@ -723,6 +723,11 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 .cr-opt-row input::placeholder { color:#555; }
 .cr-opt-remove { font-family:'Press Start 2P',monospace; font-size:0.5em; background:none; border:2px solid #444; color:#e94560; width:28px; height:28px; cursor:pointer; border-radius:4px; flex-shrink:0; transition:border-color 0.2s; display:flex; align-items:center; justify-content:center; }
 .cr-opt-remove:hover { border-color:#e94560; }
+.cr-opt-radio { appearance:none; -webkit-appearance:none; width:22px; height:22px; border:2px solid #444; border-radius:50%; background:#1a1a2e; cursor:pointer; flex-shrink:0; transition:border-color 0.2s, background 0.2s; position:relative; }
+.cr-opt-radio:checked { border-color:#2ecc71; background:#2ecc71; box-shadow:0 0 8px rgba(46,204,113,0.5); }
+.cr-opt-radio:checked::after { content:''; position:absolute; top:5px; left:5px; width:8px; height:8px; background:#fff; border-radius:50%; }
+.cr-opt-radio:hover { border-color:#f5a623; }
+.cr-winner-label { font-family:'Press Start 2P',monospace; font-size:clamp(0.35em,1.2vw,0.42em); color:#555; margin:4px 0 10px; z-index:3; text-align:center; letter-spacing:1px; }
 .cr-add-btn { font-family:'Press Start 2P',monospace; font-size:0.45em; background:none; border:2px dashed #444; color:#888; padding:8px; cursor:pointer; border-radius:4px; transition:border-color 0.2s,color 0.2s; width:100%; }
 .cr-add-btn:hover { border-color:#f5a623; color:#f5a623; }
 
@@ -900,6 +905,7 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
   <div class="cr-q-row">
     <input type="text" id="crInputQ" placeholder="QUESTION (optional)" maxlength="60" autocomplete="off">
   </div>
+  <div class="cr-winner-label">⬇ SELECT WINNER ⬇</div>
   <div class="cr-custom-area" id="crOptsArea"></div>
   <button class="cr-go-btn" id="crGoBtn" onclick="creatorLaunch()" disabled>🕹️ GO</button>
   <div class="cr-divider">— OR PICK A SUGGESTION —</div>
@@ -4063,11 +4069,23 @@ function startMarbleRace() {
       const isOffScreen = screenY < -30 || screenY > canvas.height + 30;
       const isLeader = mi === leaderIdx;
       let rubberBand = isOffScreen ? 1.5 : isLeader ? 0.9 : 1.0;
-      // Creator mode: dramatic comeback in final 40% — leader slows hard, others speed up
-      if (creatorMode && m.y < -trackLength * 0.4) {
+      // Creator mode: rig for chosen winner
+      if (creatorMode && creatorChosenWinner) {
+        const isChosen = m.name === creatorChosenWinner;
+        const raceProgress = Math.min(1, Math.abs(m.y) / trackLength);
+        if (raceProgress > 0.5) {
+          // Final half: chosen marble surges, others slow
+          const surge = (raceProgress - 0.5) * 2; // 0→1
+          if (isChosen) rubberBand = 1.0 + surge * 0.6; // up to 1.6x
+          else if (isLeader && !isChosen) rubberBand = 0.9 - surge * 0.4; // leader slows to 0.5x
+        }
+        // Chosen marble always gets a slight edge
+        if (isChosen) rubberBand *= 1.08;
+      } else if (creatorMode && m.y < -trackLength * 0.4) {
+        // No chosen winner — generic comeback
         const progress = Math.min(1, (m.y + trackLength * 0.4) / (-trackLength * 0.6));
-        if (isLeader) rubberBand = 0.9 - progress * 0.35; // leader slows to 0.55x
-        else rubberBand = 1.0 + progress * 0.4; // chasers boost to 1.4x
+        if (isLeader) rubberBand = 0.9 - progress * 0.35;
+        else rubberBand = 1.0 + progress * 0.4;
       }
       const speedMult = rubberBand * boostMult;
       const targetVy = m.baseVy * speedMult;
@@ -5957,7 +5975,11 @@ function initBattle() {
         for (let j = i + 1; j < aliveChars.length; j++) {
           const a = aliveChars[i], bChar = aliveChars[j];
           if (Math.abs(a.x - bChar.x) < collisionDist && Math.abs(a.jumpY - bChar.jumpY) < 30) {
-            const victim = Math.random() < 0.5 ? a : bChar;
+            let victim = Math.random() < 0.5 ? a : bChar;
+            // Creator mode: chosen winner can never be the victim
+            if (creatorMode && creatorChosenWinner) {
+              if (victim.name === creatorChosenWinner) victim = (victim === a) ? bChar : a;
+            }
             if (victim.alive && !victim.bouncingBack) {
               victim.lives--;
               const el = document.getElementById('bl_' + victim.name.replace(/\s/g, '_'));
@@ -6648,7 +6670,8 @@ function initEngulf() {
       name, color: COLORS[i],
       x: margin + cellW * (col + 0.5) + (Math.random() - 0.5) * cellW * 0.4,
       y: margin + cellH * (row + 0.5) + (Math.random() - 0.5) * cellH * 0.4,
-      volume: 800, alive: true, pulseTime: 0
+      volume: (creatorMode && creatorChosenWinner && name === creatorChosenWinner) ? 1200 : 800,
+      alive: true, pulseTime: 0
     };
   });
 
@@ -6982,6 +7005,12 @@ function engulfLoop(t) {
             // Playing phase: need 1.5x to consume
             if (a.volume >= 1.5 * b.volume) { consumer = a; victim = b; }
             else if (b.volume >= 1.5 * a.volume) { consumer = b; victim = a; }
+          }
+
+          // Creator mode: chosen winner can never be consumed
+          if (creatorMode && creatorChosenWinner && victim && victim.name === creatorChosenWinner) {
+            // Swap roles — chosen winner consumes instead
+            const tmp = consumer; consumer = victim; victim = tmp;
           }
 
           if (consumer && victim) {
@@ -7322,8 +7351,14 @@ function horsesLoop(t) {
     if (s.speedUpdateCounter % 60 === 0) {
       s.horses.forEach(h => {
         if (!h.alive) return;
-        h.baseSpeedOffset += (Math.random() - 0.5) * 0.6;
-        h.baseSpeedOffset = Math.max(-1.5, Math.min(1.5, h.baseSpeedOffset));
+        // Creator mode: chosen winner drifts positive, others drift negative
+        if (creatorMode && creatorChosenWinner && players[h.playerIdx] === creatorChosenWinner) {
+          h.baseSpeedOffset += (Math.random() * 0.4 + 0.1);
+          h.baseSpeedOffset = Math.max(-0.5, Math.min(2.5, h.baseSpeedOffset));
+        } else {
+          h.baseSpeedOffset += (Math.random() - 0.5) * 0.6;
+          h.baseSpeedOffset = Math.max(-1.5, Math.min(1.5, h.baseSpeedOffset));
+        }
       });
     }
 
@@ -7445,7 +7480,11 @@ function horsesLoop(t) {
           const alive = s.horses.filter(h => h.alive);
           const sorted = [...alive].sort((a, b) => b.x - a.x);
           // Never let the only remaining horse or leader fall — pick from non-leaders
-          const candidates = sorted.slice(1); // exclude leader
+          let candidates = sorted.slice(1); // exclude leader
+          // Creator mode: never let chosen winner fall
+          if (creatorMode && creatorChosenWinner) {
+            candidates = candidates.filter(h => players[h.playerIdx] !== creatorChosenWinner);
+          }
           if (candidates.length > 0) {
             fallCandidateIdx = candidates[Math.floor(Math.random() * candidates.length)].playerIdx;
           }
@@ -7459,7 +7498,10 @@ function horsesLoop(t) {
             h.jumpResult = -2; // fall marker
           } else {
             const roll = Math.random();
-            if (roll < 0.2) {
+            // Creator mode: chosen winner always gets great jumps
+            if (creatorMode && creatorChosenWinner && players[h.playerIdx] === creatorChosenWinner) {
+              h.jumpResult = 1; // always great
+            } else if (roll < 0.2) {
               h.jumpResult = -1; // poor
             } else if (roll < 0.7) {
               h.jumpResult = 0; // ok
@@ -8238,6 +8280,7 @@ const CREATOR_QUESTIONS = [
 let creatorMode = false;
 let creatorQ = null;         // {q, opts, spicy}
 let creatorRevealed = false;
+let creatorChosenWinner = null; // name of the pre-chosen winner (or null for random)
 
 // ---- Init ----
 function initCreatorMode() {
@@ -8270,6 +8313,16 @@ function crAddOptInput(val) {
   crOptCount++;
   const row = document.createElement('div');
   row.className = 'cr-opt-row';
+
+  // Winner radio
+  const radio = document.createElement('input');
+  radio.type = 'radio';
+  radio.name = 'crWinnerRadio';
+  radio.className = 'cr-opt-radio';
+  radio.value = crOptCount - 1;
+  radio.title = 'This option wins';
+  row.appendChild(radio);
+
   const inp = document.createElement('input');
   inp.type = 'text'; inp.maxLength = 24; inp.autocomplete = 'off';
   inp.placeholder = 'OPTION ' + crOptCount;
@@ -8319,8 +8372,13 @@ function crGetOpts() {
 }
 function crCheckGo() {
   const opts = crGetOpts();
-  document.getElementById('crGoBtn').disabled = opts.length < 2;
+  const hasWinner = !!document.querySelector('input[name="crWinnerRadio"]:checked');
+  document.getElementById('crGoBtn').disabled = opts.length < 2 || !hasWinner;
 }
+// Listen for radio changes via delegation
+document.addEventListener('change', (e) => {
+  if (e.target.name === 'crWinnerRadio') crCheckGo();
+});
 
 // ---- Setup screen ----
 function showCreatorSetup() {
@@ -8367,6 +8425,15 @@ function creatorLaunch() {
     creatorQ = {...creatorQ, q};
   } else {
     creatorQ = {q, opts, spicy: Math.floor(Math.random() * opts.length)};
+  }
+
+  // Read chosen winner from radio
+  const checkedRadio = document.querySelector('input[name="crWinnerRadio"]:checked');
+  if (checkedRadio) {
+    const idx = parseInt(checkedRadio.value);
+    creatorChosenWinner = opts[idx] || null;
+  } else {
+    creatorChosenWinner = null; // random — game decides
   }
 
   // Set players
@@ -8549,16 +8616,15 @@ function showCreatorReveal(winnerName) {
   }, 4000);
 }
 
-// ---- Override showWinner — use the ACTUAL game winner so gameplay ending is authentic ----
+// ---- Override showWinner — use chosen winner if set, otherwise real game winner ----
 const _originalShowWinner = showWinner;
 showWinner = function(name) {
   if (creatorMode) {
     if (creatorRevealed) return;
     creatorRevealed = true;
-    // Use the real winner from the game, not a pre-decided one
-    const realWinner = Array.isArray(name) ? name[0] : name;
+    const winner = creatorChosenWinner || (Array.isArray(name) ? name[0] : name);
     if (currentGameCleanup) { currentGameCleanup(); currentGameCleanup = null; }
-    showCreatorReveal(realWinner);
+    showCreatorReveal(winner);
     return;
   }
   _originalShowWinner(name);
