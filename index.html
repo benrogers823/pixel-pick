@@ -18,6 +18,7 @@
 <meta name="twitter:description" content="9 retro mini-games to pick a winner. Free, instant, no download.">
 <meta name="twitter:image" content="https://www.pixel-pick.com/og-image.png">
 <link rel="icon" type="image/png" href="favicon.png">
+<script defer src="/_vercel/insights/script.js"></script>
 <link rel="shortcut icon" href="favicon.png">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -657,9 +658,12 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 .cr-particle { position:absolute; border-radius:50%; opacity:0; animation:crFloat linear infinite; }
 @keyframes crFloat { 0%{transform:translateY(100vh) scale(0); opacity:0;} 10%{opacity:1;} 90%{opacity:1;} 100%{transform:translateY(-20vh) scale(1); opacity:0;} }
 
-/* Question — BIG, centred, slams in */
-.cr-question { font-family:'Press Start 2P',monospace; font-size:clamp(1.4em,5.5vw,2.8em); color:#fff; text-shadow:0 0 30px rgba(255,255,255,0.8), 0 0 80px rgba(245,166,35,0.6); text-align:center; max-width:88%; line-height:1.45; z-index:3; animation:crQuestionSlam 0.5s cubic-bezier(.15,1.4,.5,1) both, crTextPulse 2.5s ease-in-out infinite 0.5s; }
-@keyframes crTextPulse { 0%,100%{text-shadow:0 0 30px rgba(255,255,255,0.8), 0 0 80px rgba(245,166,35,0.6);} 50%{text-shadow:0 0 50px #fff, 0 0 100px rgba(245,166,35,0.9), 0 0 160px rgba(233,69,96,0.4);} }
+/* "THE COMPUTER HAS CALCULATED:" label above question */
+.cr-computed-label { font-family:'Press Start 2P',monospace; font-size:clamp(0.4em,1.3vw,0.6em); color:#0ff; letter-spacing:3px; text-shadow:0 0 12px rgba(0,255,255,0.8), 0 0 30px rgba(0,255,255,0.3); z-index:3; margin-bottom:8px; opacity:0; animation:crFadeIn 0.3s ease-out 0.1s both; }
+
+/* Question — MASSIVE, dominates the screen */
+.cr-question { font-family:'Press Start 2P',monospace; font-size:clamp(1.8em,6.8vw,3.8em); color:#fff; text-shadow:0 0 30px rgba(255,255,255,0.8), 0 0 80px rgba(245,166,35,0.6); text-align:center; max-width:92%; line-height:1.4; z-index:3; animation:crQuestionSlam 0.5s cubic-bezier(.15,1.4,.5,1) both, crTextPulse 2.5s ease-in-out infinite 0.5s; }
+@keyframes crTextPulse { 0%,100%{text-shadow:0 0 30px rgba(255,255,255,0.8), 0 0 80px rgba(245,166,35,0.6);} 50%{text-shadow:0 0 60px #fff, 0 0 120px rgba(245,166,35,0.9), 0 0 180px rgba(233,69,96,0.5);} }
 
 /* Options container */
 #crHookOpts { display:flex; flex-direction:column; align-items:center; gap:0; z-index:3; width:100%; margin-top:10px; }
@@ -919,9 +923,10 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 <div id="creatorHookScreen">
   <div class="cr-particles" id="crParticles"></div>
   <div class="cr-border"></div>
+  <div class="cr-computed-label" id="crComputedLabel">🖥️ THE COMPUTER HAS CALCULATED:</div>
   <div class="cr-question" id="crQuestion"></div>
   <div id="crHookOpts"></div>
-  <div class="cr-decide" id="crDecide">🕹️ THE MACHINE WILL DECIDE 🕹️</div>
+  <div class="cr-decide" id="crDecide"></div>
 </div>
 
 <!-- Creator Mode: Reveal Screen -->
@@ -4051,9 +4056,21 @@ function startMarbleRace() {
         if (dist < mr + pw.size) {
           pw.used = true;
           m.sizeMultiplier = 2;
+          m.sizeMultiplierExpiry = t + 4000; // big for 4 seconds then shrinks back
           sfx('powerup');
         }
       });
+
+      // Big marble powerup expiry — smoothly shrinks back to normal over 0.5s
+      if (m.sizeMultiplierExpiry && m.sizeMultiplier > 1) {
+        const timeLeft = m.sizeMultiplierExpiry - t;
+        if (timeLeft <= 0) {
+          m.sizeMultiplier = 1;
+          m.sizeMultiplierExpiry = null;
+        } else if (timeLeft < 500) {
+          m.sizeMultiplier = 1 + (timeLeft / 500); // shrinks from 2 → 1 over last 0.5s
+        }
+      }
 
       // Boost: 1.8x speed decaying to 1x over 2.5 seconds
       let boostMult = 1.0;
@@ -8212,6 +8229,30 @@ const CREATOR_QUESTIONS = [
   {q:"ULTIMATE COMFORT FOOD?", opts:["MAC & CHEESE","CHICKEN NUGGETS"], spicy:0},
   {q:"BETTER WORKOUT?", opts:["GYM","RUNNING"], spicy:0},
   {q:"BETTER SEASON?", opts:["SUMMER","WINTER"], spicy:0},
+  // --- 2 options (spicy batch) ---
+  {q:"WHO CHEATED FIRST?", opts:["ROSS","RACHEL"], spicy:0},
+  {q:"WHO WOULD GHOST YOU FASTER?", opts:["YOUR CRUSH","YOUR BEST MATE"], spicy:0},
+  {q:"WHICH IS MORE DELUSIONAL?", opts:["ENGLAND FANS","FLAT EARTHERS"], spicy:0},
+  {q:"WHO STARTS MORE DRAMA?", opts:["YOUR GROUP CHAT","YOUR FAMILY CHAT"], spicy:1},
+  {q:"WHO WOULD WIN AN ARGUMENT?", opts:["YOUR MUM","YOUR DAD"], spicy:0},
+  {q:"BIGGER WASTE OF MONEY?", opts:["GYM MEMBERSHIP","NEW OUTFIT YOU'LL WEAR ONCE"], spicy:1},
+  {q:"WHO LIED MORE?", opts:["PINOCCHIO","YOUR EX"], spicy:1},
+  {q:"WHICH HURTS MORE?", opts:["HEARTBREAK","STEPPING ON LEGO"], spicy:1},
+  {q:"WHO WOULD LAST LONGER IN THE WILD?", opts:["A VEGAN","A GYM BRO"], spicy:0},
+  {q:"BIGGER RED FLAG?", opts:["THEY DON'T LIKE DOGS","THEY DON'T LIKE CHEESE"], spicy:1},
+  {q:"WHICH GENERATION IS MORE EMBARRASSING?", opts:["MILLENNIALS","GEN Z"], spicy:0},
+  {q:"WHICH IS MORE OVERRATED?", opts:["PARIS","NEW YORK"], spicy:0},
+  {q:"BETTER HANGOVER CURE?", opts:["FULL ENGLISH","MORE SLEEP"], spicy:1},
+  {q:"BIGGER CRIME?", opts:["SKIPPING THE INTRO","SPOILING THE ENDING"], spicy:1},
+  {q:"WHOSE FAULT IS IT?", opts:["THE DRIVER","THE BACKSEAT DRIVER"], spicy:0},
+  {q:"WHO WOULD SURVIVE LONGER?", opts:["KEVIN FROM HOME ALONE","A MINECRAFT PLAYER"], spicy:1},
+  {q:"WHO TEXTS BACK SLOWER?", opts:["YOUR CRUSH","YOUR BANK"], spicy:0},
+  {q:"WHICH IS MORE EMBARRASSING?", opts:["BEING CAUGHT SINGING ALONE","BEING CAUGHT TALKING TO YOUR PET"], spicy:1},
+  {q:"BIGGER VILLAIN?", opts:["THANOS","YOUR LANDLORD"], spicy:1},
+  {q:"WHO PEAKED IN SECONDARY SCHOOL?", opts:["THE SPORTS CAPTAIN","THE HEAD BOY/GIRL"], spicy:0},
+  {q:"WHICH IS A BIGGER FLEX?", opts:["NEVER HAVING A JOB","NEVER HAVING WATCHED THE OFFICE"], spicy:1},
+  {q:"WHICH IS MORE UNBEARABLE?", opts:["SICK ON YOUR BIRTHDAY","SICK ON CHRISTMAS DAY"], spicy:1},
+  {q:"WHO HAS MORE MAIN CHARACTER ENERGY?", opts:["YOUR MUM","YOUR NAN"], spicy:1},
   // --- 3 options ---
   {q:"WHO WILL WIN THE 2026 WORLD CUP?", opts:["BRAZIL","ARGENTINA","ENGLAND"], spicy:2},
   {q:"BEST CHRIS IN HOLLYWOOD?", opts:["HEMSWORTH","EVANS","PRATT"], spicy:2},
@@ -8227,6 +8268,14 @@ const CREATOR_QUESTIONS = [
   {q:"BEST BRITISH SITCOM?", opts:["THE INBETWEENERS","FRIDAY NIGHT DINNER","PEEP SHOW"], spicy:0},
   {q:"BEST PIZZA BASE?", opts:["THIN CRUST","DEEP DISH","STUFFED CRUST"], spicy:2},
   {q:"WORST AIRPORT EXPERIENCE?", opts:["DELAYS","LOST LUGGAGE","MIDDLE SEAT"], spicy:2},
+  {q:"WHO'S THE MOST CHAOTIC?", opts:["KANYE","ELON MUSK","DONALD TRUMP"], spicy:0},
+  {q:"MOST USELESS SUPERPOWER?", opts:["TALKING TO FISH","INVISIBILITY THAT SWITCHES OFF WHEN YOU SNEEZE","KNOWING THE EXACT TIME YOU'LL DIE"], spicy:2},
+  {q:"WHO WOULD ACCIDENTALLY START A WAR?", opts:["YOUR DAD ON HOLIDAY","ELON MUSK","A DRUNK POLITICIAN"], spicy:0},
+  {q:"BEST EXCUSE FOR BEING LATE?", opts:["\"TRAFFIC\"","\"MY ALARM DIDN'T GO OFF\"","\"I FORGOT\""], spicy:2},
+  {q:"WHO WOULD WIN COME DINE WITH ME?", opts:["YOUR MUM","YOUR DAD","YOUR NAN"], spicy:2},
+  {q:"MOST ICONIC LIE?", opts:["\"I'M 5 MINS AWAY\"","\"I'VE ALMOST LEFT\"","\"I READ IT\""], spicy:0},
+  {q:"WHICH IS MOST UNHINGED AT 2AM?", opts:["DRUNK TEXTING YOUR EX","ONLINE SHOPPING","STARTING A NEW SERIES"], spicy:0},
+  {q:"WHO WOULD SURVIVE THE PURGE?", opts:["YOUR MOST DRAMATIC FRIEND","YOUR MOST BORING FRIEND","YOUR NAN"], spicy:2},
   // --- 4 options ---
   {q:"BEST NINJA TURTLE?", opts:["LEONARDO","DONATELLO","RAPHAEL","MICHELANGELO"], spicy:3},
   {q:"WHO WOULD WIN SQUID GAME?", opts:["YOUR MUM","YOUR DAD","YOUR TEACHER","YOUR BOSS"], spicy:0},
@@ -8242,6 +8291,11 @@ const CREATOR_QUESTIONS = [
   {q:"BEST WAY TO EAT POTATO?", opts:["CHIPS","MASHED","ROASTED","BAKED"], spicy:0},
   {q:"BEST DISNEY PRINCESS?", opts:["MULAN","RAPUNZEL","MOANA","ELSA"], spicy:0},
   {q:"WHO WOULD WIN LOVE ISLAND?", opts:["YOUR MUM","YOUR TEACHER","YOUR BOSS","YOUR NAN"], spicy:3},
+  {q:"WHICH BETRAYAL IS WORST?", opts:["PINEAPPLE ON PIZZA","SOCKS WITH SANDALS","EATING A MATE'S LEFTOVERS","SPOILING A SHOW"], spicy:2},
+  {q:"WHO WOULD WIN THE APPRENTICE?", opts:["YOUR MUM","YOUR TEACHER","YOUR BOSS","YOUR EX"], spicy:3},
+  {q:"MOST CHAOTIC THING YOU CAN DO?", opts:["DRUNK TEXTING","DRUNK SHOPPING","DRUNK VOICEMAILS","DRUNK COOKING"], spicy:0},
+  {q:"MOST ICONIC TV MOMENT?", opts:["THE RED WEDDING","ROSS SAYS THE WRONG NAME","WALTER WHITE SAYS 'I AM THE DANGER'","THE OFFICE FINALE"], spicy:1},
+  {q:"WHICH IS MOST BRITISH?", opts:["APOLOGISING TO A CHAIR YOU BUMPED INTO","QUEUING IN THE RAIN","SAYING 'YOU TOO' WHEN THE WAITER SAYS ENJOY YOUR MEAL","TEA SOLVES EVERYTHING"], spicy:0},
   // --- 5 options ---
   {q:"BEST MARVEL AVENGER?", opts:["IRON MAN","THOR","HULK","SPIDER-MAN","CAPTAIN AMERICA"], spicy:2},
   {q:"BEST CHOCOLATE BAR?", opts:["SNICKERS","TWIX","KIT KAT","DAIRY MILK","MARS"], spicy:0},
@@ -8253,6 +8307,9 @@ const CREATOR_QUESTIONS = [
   {q:"BEST THEME PARK?", opts:["DISNEY WORLD","ALTON TOWERS","THORPE PARK","UNIVERSAL","LEGOLAND"], spicy:4},
   {q:"BEST PET TO OWN?", opts:["DOG","CAT","HAMSTER","FISH","SNAKE"], spicy:4},
   {q:"BEST MILKSHAKE?", opts:["CHOCOLATE","STRAWBERRY","BANANA","VANILLA","OREO"], spicy:4},
+  {q:"WHO WILL BE THE FIRST TRILLIONAIRE?", opts:["ELON MUSK","JEFF BEZOS","MR BEAST","RIHANNA","KIM KARDASHIAN"], spicy:2},
+  {q:"WHO HAS THE MOST TO PROVE IN 2026?", opts:["MARCUS RASHFORD","NEYMAR","GARETH SOUTHGATE","HARRY KANE","PAUL POGBA"], spicy:0},
+  {q:"WHICH 5-MINUTE TASK DO YOU PUT OFF THE LONGEST?", opts:["REPLYING TO THAT TEXT","MAKING THE PHONE CALL","SENDING THE EMAIL","DOING THE DISHES","CHANGING THE BIN"], spicy:0},
   // --- 6 options ---
   {q:"BEST CONTINENT TO LIVE ON?", opts:["EUROPE","NORTH AMERICA","SOUTH AMERICA","ASIA","AFRICA","AUSTRALIA"], spicy:5},
   {q:"WHO WILL WIN THE BALLON D'OR 2026?", opts:["MBAPPE","HAALAND","BELLINGHAM","VINICIUS JR","SAKA","YAMAL"], spicy:4},
@@ -8278,6 +8335,13 @@ const CREATOR_QUESTIONS = [
   {q:"BEST CARTOON EVER?", opts:["SPONGEBOB","TOM & JERRY","SIMPSONS","AVATAR","ADVENTURE TIME","PHINEAS & FERB","SCOOBY-DOO"], spicy:0},
   {q:"BEST SANDWICH SHOP?", opts:["SUBWAY","GREGGS","PRET","DELI","HOMEMADE"], spicy:1},
   {q:"BEST GYM EXERCISE?", opts:["BENCH PRESS","SQUATS","DEADLIFT","PULL-UPS","BICEP CURLS","LEG PRESS"], spicy:4},
+  {q:"WHO WOULD WIN CELEBRITY BAKE OFF?", opts:["GORDON RAMSAY","YOUR NAN","A 9-YEAR-OLD","DWAYNE JOHNSON","SNOOP DOGG","MR BEAST"], spicy:2},
+  {q:"WHICH WOULD YOU DELETE FROM EXISTENCE?", opts:["MONDAYS","SLOW WIFI","PASSIVE AGGRESSIVE EMAILS","QUEUE JUMPERS","LUKEWARM FOOD","REPLY ALL EMAILS"], spicy:3},
+  {q:"WHICH COUNTRY WOULD WIN IN AN ARGUMENT?", opts:["ITALY","FRANCE","USA","BRITAIN","AUSTRALIA","GERMANY"], spicy:4},
+  {q:"WHOSE SPOTIFY WRAPPED IS MOST EMBARRASSING?", opts:["YOUR MUM","YOUR DAD","YOUR TEACHER","YOUR BOSS","YOUR EX","YOUR BEST MATE"], spicy:5},
+  {q:"MOST ICONIC FICTIONAL VILLAIN?", opts:["VOLDEMORT","THANOS","THE JOKER","DARTH VADER","HANNIBAL LECTER","CERSEI LANNISTER"], spicy:4},
+  {q:"WHO WOULD SURVIVE A WEEK WITHOUT THEIR PHONE?", opts:["YOUR MUM","YOUR DAD","YOUR NAN","YOUR BOSS","YOUR YOUNGEST SIBLING","YOUR MOST DRAMATIC FRIEND"], spicy:5},
+  {q:"BEST RETRO CONSOLE?", opts:["N64","PS1","SEGA MEGA DRIVE","GAME BOY","SNES","DREAMCAST"], spicy:2},
 ];
 
 let creatorMode = false;
@@ -8618,6 +8682,10 @@ function showCreatorHook() {
   const qEl = document.getElementById('crQuestion');
   const optsDiv = document.getElementById('crHookOpts');
   const decideEl = document.getElementById('crDecide');
+  const labelEl = document.getElementById('crComputedLabel');
+
+  // Reset label animation
+  if (labelEl) { labelEl.style.animation = 'none'; void labelEl.offsetWidth; labelEl.style.animation = 'crFadeIn 0.3s ease-out 0.1s both'; }
 
   // Spawn background particles
   crSpawnParticles();
@@ -8626,6 +8694,19 @@ function showCreatorHook() {
   optsDiv.innerHTML = '';
   decideEl.style.animation = 'none';
   decideEl.style.opacity = '0';
+
+  // Pick a random authoritative computer verdict phrase
+  const decidePhrases = [
+    '⚡ DEBATE OVER. THE ALGORITHM DOES NOT LIE. ⚡',
+    '🖥️ CALCULATED BY 1,000 PROCESSORS. ACCEPT IT. 🖥️',
+    '📡 THE COMPUTER KNOWS BEST. NO ARGUMENTS. 📡',
+    '⚙️ MATHEMATICALLY PROVEN. THIS IS FINAL. ⚙️',
+    '🔬 SCIENTIFICALLY SETTLED. MOVE ON. 🔬',
+    '💾 THE DATA IS CLEAR. THE MACHINE HAS SPOKEN. 💾',
+    '🤖 RESISTANCE IS FUTILE. THE ALGORITHM DECIDED. 🤖',
+    '📊 99.9% ACCURACY. DEBATE OFFICIALLY CLOSED. 📊',
+  ];
+  decideEl.textContent = decidePhrases[Math.floor(Math.random() * decidePhrases.length)];
 
   // Show screen first
   hookEl.classList.add('active');
