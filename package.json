@@ -1,0 +1,29 @@
+{
+  "name": "pixel-pick",
+  "version": "1.0.0",
+  "description": "Pixel Pick - A retro arcade game",
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve .",
+    "build": "echo 'No build step required for static HTML'",
+    "test": "echo \"No tests specified\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/benrogers823/pixel-pick.git"
+  },
+  "keywords": [
+    "game",
+    "arcade",
+    "pixel"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/benrogers823/pixel-pick/issues"
+  },
+  "homepage": "https://github.com/benrogers823/pixel-pick#readme",
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
+}
