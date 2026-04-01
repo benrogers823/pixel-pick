@@ -481,6 +481,17 @@ canvas { touch-action: none; }
 #namePickerStatus { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10; font-size: 1.5em; color: #c8b8e8; font-family: Georgia, serif; text-shadow: 0 2px 6px rgba(0,0,0,0.5); text-align: center; }
 /* Engulf - Void/Space theme */
 #engulfScreen { flex-direction: column; align-items: center; background: radial-gradient(ellipse at center, #0d0d2b 0%, #060614 50%, #020208 100%); position: relative; overflow: hidden; }
+#snakeScreen { background:#030a03; position:relative; overflow:hidden; }
+#snakeCanvas { position:absolute; top:0; left:0; width:100%; height:100%; display:block; }
+#snakeHUD { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:10; font-family:'Press Start 2P',monospace; font-size:clamp(1em,3vw,1.6em); color:#0f0; text-shadow:0 0 15px rgba(0,255,0,0.8); pointer-events:none; letter-spacing:2px; }
+#snakeHUD.danger { color:#f00; text-shadow:0 0 15px rgba(255,0,0,0.8); animation:snakeTimerFlash 0.4s step-end infinite; }
+@keyframes snakeTimerFlash { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+#snakeInfo { position:absolute; top:10px; right:10px; z-index:10; background:rgba(0,0,0,0.7); border:1px solid rgba(0,255,0,0.3); padding:8px 12px; border-radius:4px; font-family:'Press Start 2P',monospace; font-size:clamp(0.35em,1vw,0.5em); color:#0f0; min-width:110px; }
+#snakeInfo .sn-entry { display:flex; align-items:center; gap:6px; margin:3px 0; }
+#snakeInfo .sn-dot { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+#snakeInfo .sn-dead { opacity:0.3; text-decoration:line-through; }
+#snakeStatus { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:20; font-family:'Press Start 2P',monospace; font-size:clamp(1.2em,4vw,2em); color:#0f0; text-shadow:0 0 20px rgba(0,255,0,0.9); text-align:center; pointer-events:none; opacity:0; transition:opacity 0.3s; }
+#snakeStatus.visible { opacity:1; }
 #engulfCanvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 #horsesCanvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 .engulf-back { position: absolute; top: 15px; left: 15px; z-index: 10; }
@@ -675,9 +686,14 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 .cr-hook-opt:nth-child(4n+5) { color:#f5a623; text-shadow:0 0 18px rgba(245,166,35,0.8); }
 .cr-hook-opt:nth-child(4n+7) { color:#e94560; text-shadow:0 0 18px rgba(233,69,96,0.8); }
 
-/* "THE MACHINE WILL DECIDE" */
-.cr-decide { font-family:'Press Start 2P',monospace; font-size:clamp(0.5em,1.8vw,0.75em); color:#e94560; text-shadow:0 0 10px rgba(233,69,96,0.6); margin-top:20px; z-index:3; letter-spacing:2px; opacity:0; animation:crDecideBlink 0.6s ease-in-out infinite alternate; }
+/* Authoritative verdict line */
+.cr-decide { font-family:'Press Start 2P',monospace; font-size:clamp(0.5em,1.8vw,0.75em); color:#e94560; text-shadow:0 0 10px rgba(233,69,96,0.6); margin-top:20px; z-index:3; letter-spacing:2px; opacity:0; animation:crDecideBlink 0.6s ease-in-out infinite alternate; text-align:center; max-width:90%; padding:0 10px; }
 @keyframes crDecideBlink { 0%{opacity:0.5; text-shadow:0 0 10px rgba(233,69,96,0.4);} 100%{opacity:1; text-shadow:0 0 25px rgba(233,69,96,0.9), 0 0 50px rgba(233,69,96,0.3);} }
+
+/* Running commentary overlay during gameplay */
+#crCommentary { position:fixed; bottom:40px; left:50%; transform:translateX(-50%); z-index:9999; font-family:'Press Start 2P',monospace; font-size:clamp(0.55em,2vw,0.9em); color:#ffe066; text-shadow:0 0 12px rgba(255,224,102,0.9), 0 0 30px rgba(255,224,102,0.4); background:rgba(0,0,0,0.7); border:2px solid rgba(255,224,102,0.4); padding:10px 22px; border-radius:4px; white-space:nowrap; max-width:90vw; text-align:center; pointer-events:none; opacity:0; transition:opacity 0.25s ease; letter-spacing:1px; }
+#crCommentary.cr-comm-show { opacity:1; }
+#crCommentary.cr-comm-hide { opacity:0; }
 
 /* Keyframes shared by hook */
 @keyframes crSlideDown { 0%{transform:translateY(-60px);opacity:0;} 100%{transform:translateY(0);opacity:1;} }
@@ -905,6 +921,15 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
   <canvas id="horsesCanvas"></canvas>
 </div>
 
+<!-- Snake Royale Screen -->
+<div id="snakeScreen" class="screen">
+  <button class="btn btn-secondary" style="position:absolute;top:10px;left:10px;z-index:20;" onclick="cleanupSnake(); resetGame(); showScreen('setupScreen')">Back</button>
+  <canvas id="snakeCanvas"></canvas>
+  <div id="snakeHUD">20</div>
+  <div id="snakeInfo"></div>
+  <div id="snakeStatus"></div>
+</div>
+
 <!-- Creator Mode: Setup Screen -->
 <div id="creatorSetupScreen">
   <div class="cr-setup-title">🎬 CREATOR MODE</div>
@@ -928,6 +953,9 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
   <div id="crHookOpts"></div>
   <div class="cr-decide" id="crDecide"></div>
 </div>
+
+<!-- Creator Mode: Running Commentary -->
+<div id="crCommentary"></div>
 
 <!-- Creator Mode: Reveal Screen -->
 <div id="creatorRevealScreen">
@@ -1123,6 +1151,11 @@ const GAME_INTROS = {
     icon: '\u{1F3C7}', title: 'HORSE RACE',
     desc: 'Horses thunder down the track! Leap over hedges, sprint for the finish, and hold on tight for the home straight!',
     win: 'The first horse past the finish line wins!'
+  },
+  snake: {
+    icon: '\u{1F40D}', title: 'SNAKE ROYALE',
+    desc: 'Every player is a snake on the same grid! Eat food to grow longer — but don\'t crash into walls, yourself, or other snakes!',
+    win: 'Last snake alive wins! If time runs out, the longest snake is the champion!'
   }
 };
 
@@ -2164,6 +2197,7 @@ document.addEventListener('click', (e) => {
 
 const GAMES = [
   {id:'marble',     name:'Marble Race',   icon:'\u26AA'},
+  {id:'snake',      name:'Snake Royale',  icon:'\u{1F40D}'},
   {id:'engulf',     name:'Engulf',        icon:'\u2B24'},
   {id:'battle',     name:'Battle',        icon:'\u2694'},
   {id:'horses',     name:'Horse Race',    icon:'\u{1F3C7}'},
@@ -2290,20 +2324,39 @@ function getWrappedGame(offset) {
 // Game artwork definitions for CD case covers
 const GAME_ART = {
   marble: (ctx, w, h) => {
-    // Track & marbles
-    ctx.fillStyle = '#3d2b1f'; ctx.fillRect(0,0,w,h);
-    ctx.fillStyle = '#5a3a28'; ctx.fillRect(w*0.1, h*0.35, w*0.8, h*0.3);
-    ctx.strokeStyle = '#c8a870'; ctx.lineWidth = 2;
-    ctx.strokeRect(w*0.1, h*0.35, w*0.8, h*0.3);
-    const marbleColors = ['#e94560','#3498db','#2ecc71','#f5a623'];
-    marbleColors.forEach((c,i) => {
-      const x = w*0.2 + i*(w*0.18), y = h*0.5;
-      ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x,y,w*0.09,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.arc(x-w*0.03,y-w*0.03,w*0.03,0,Math.PI*2); ctx.fill();
+    // Futuristic track
+    ctx.fillStyle = '#050510'; ctx.fillRect(0,0,w,h);
+    // Neon grid
+    ctx.strokeStyle = 'rgba(0,220,255,0.18)'; ctx.lineWidth = 0.5;
+    const gs = w * 0.14;
+    for (let x = 0; x < w; x += gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for (let y = 0; y < h; y += gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+    // Neon side rails
+    ctx.strokeStyle = 'rgba(0,255,255,0.7)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(w*0.12, 0); ctx.lineTo(w*0.12, h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(w*0.88, 0); ctx.lineTo(w*0.88, h); ctx.stroke();
+    // Floor holes
+    [[w*0.3, h*0.65],[w*0.7, h*0.45]].forEach(([hx,hy]) => {
+      ctx.strokeStyle='rgba(255,0,80,0.8)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(hx,hy,w*0.06,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(hx,hy,w*0.05,0,Math.PI*2); ctx.fill();
     });
-    ctx.fillStyle = '#d4af37'; ctx.fillRect(w*0.85, h*0.2, w*0.03, h*0.6);
-    ctx.font = `bold ${w*0.14}px monospace`; ctx.fillStyle='#c8a870'; ctx.textAlign='center';
-    ctx.fillText('MARBLE', w/2, h*0.22); ctx.fillText('RACE', w/2, h*0.35);
+    // Marbles
+    const mc = ['#e94560','#3498db','#2ecc71','#f5a623'];
+    mc.forEach((c,i) => {
+      const x = w*0.22 + i*(w*0.17), y = h*0.35 + (i%2)*h*0.15;
+      ctx.shadowBlur=8; ctx.shadowColor=c;
+      ctx.fillStyle=c; ctx.beginPath(); ctx.arc(x,y,w*0.07,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.arc(x-w*0.02,y-w*0.02,w*0.025,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur=0;
+    });
+    // Finish line
+    const sqS=5; for(let i=0;i<Math.ceil(w*0.76/sqS);i++){ctx.fillStyle=(i%2===0)?'#fff':'#111';ctx.fillRect(w*0.12+i*sqS,h*0.18,sqS,sqS*1.5);}
+    // Title
+    ctx.shadowBlur=10; ctx.shadowColor='#00ffff';
+    ctx.fillStyle='#00ffff'; ctx.font=`bold ${w*0.13}px monospace`; ctx.textAlign='center';
+    ctx.fillText('MARBLE', w/2, h*0.82); ctx.fillText('RACE', w/2, h*0.94);
+    ctx.shadowBlur=0;
   },
   battle: (ctx, w, h) => {
     ctx.fillStyle = '#0a0515'; ctx.fillRect(0,0,w,h);
@@ -2445,6 +2498,54 @@ const GAME_ART = {
     ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 8;
     ctx.fillText('RANDOM', w/2, h*0.9);
     ctx.shadowBlur = 0;
+  },
+  snake: (ctx, w, h) => {
+    // Deep green grid background
+    ctx.fillStyle = '#030a03'; ctx.fillRect(0,0,w,h);
+    // Grid lines
+    const cell = Math.floor(w / 9);
+    ctx.strokeStyle = 'rgba(0,80,0,0.5)'; ctx.lineWidth = 0.5;
+    for (let c = 0; c <= w; c += cell) { ctx.beginPath(); ctx.moveTo(c,0); ctx.lineTo(c,h); ctx.stroke(); }
+    for (let r = 0; r <= h; r += cell) { ctx.beginPath(); ctx.moveTo(0,r); ctx.lineTo(w,r); ctx.stroke(); }
+    // Draw a winding snake body (green)
+    const segs = [
+      {x:2,y:2},{x:3,y:2},{x:4,y:2},{x:5,y:2},{x:6,y:2},
+      {x:6,y:3},{x:6,y:4},{x:5,y:4},{x:4,y:4},{x:3,y:4},
+      {x:2,y:4},{x:2,y:5},{x:2,y:6},{x:3,y:6},{x:4,y:6},
+      {x:5,y:6},{x:6,y:6},{x:6,y:7},{x:5,y:7}
+    ];
+    segs.forEach((s,i) => {
+      const isHead = i === segs.length - 1;
+      const g = 1;
+      const sx = s.x * cell + g, sy = s.y * cell + g, sw = cell - g*2;
+      if (isHead) {
+        ctx.shadowBlur = 12; ctx.shadowColor = '#00ff44';
+        ctx.fillStyle = '#00ff44';
+        ctx.fillRect(sx-1, sy-1, sw+2, sw+2);
+        ctx.shadowBlur = 0;
+        // Eyes
+        ctx.fillStyle = '#000'; ctx.fillRect(sx+sw*0.2, sy+sw*0.2, 2, 2); ctx.fillRect(sx+sw*0.6, sy+sw*0.2, 2, 2);
+      } else {
+        ctx.fillStyle = i % 2 === 0 ? '#1a7a2e' : '#155c23';
+        ctx.fillRect(sx, sy, sw, sw);
+      }
+    });
+    // Food pellet
+    ctx.shadowBlur = 8; ctx.shadowColor = '#ffe066';
+    ctx.fillStyle = '#ffe066';
+    ctx.beginPath(); ctx.arc(w*0.78, h*0.72, cell*0.4, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    // A dead (red) snake skeleton in corner
+    const dead = [{x:1,y:8},{x:2,y:8},{x:2,y:7}];
+    dead.forEach(s => { ctx.fillStyle='rgba(200,0,0,0.5)'; ctx.fillRect(s.x*cell+1,s.y*cell+1,cell-2,cell-2); });
+    // Title
+    ctx.font = `bold ${w*0.11}px monospace`; ctx.textAlign = 'center';
+    ctx.shadowColor = '#00ff44'; ctx.shadowBlur = 10;
+    ctx.fillStyle = '#00ff44'; ctx.fillText('SNAKE', w/2, h*0.2);
+    ctx.fillStyle = '#ffe066'; ctx.fillText('ROYALE', w/2, h*0.32);
+    ctx.shadowBlur = 0;
+    // Crown
+    ctx.font = `${w*0.2}px monospace`; ctx.fillText('👑', w/2, h*0.96);
   },
   horses: (ctx, w, h) => {
     // Green grass background
@@ -3045,6 +3146,7 @@ function startGame(game) {
   else if (game === 'namepicker') initNamePicker();
   else if (game === 'engulf') initEngulf();
   else if (game === 'horses') initHorses();
+  else if (game === 'snake') initSnake();
 }
 
 // ============ WINNING MOMENT CAPTURE ============
@@ -3733,6 +3835,18 @@ function startMarbleRace() {
     });
   }
 
+  // Floor holes — marbles that land on them fall through and are eliminated
+  const holeCount = Math.max(4, Math.floor(n * 1.5));
+  const floorHoles = [];
+  for (let i = 0; i < holeCount; i++) {
+    const holeR = 18 + Math.random() * 14;
+    floorHoles.push({
+      x: trackLeft + holeR + Math.random() * (trackWidth - holeR * 2),
+      y: -(400 + Math.random() * (trackLength - 800)),
+      r: holeR
+    });
+  }
+
   // Moving triangle obstacles
   const triangles = [];
   const triCount = 15 + n * 3;
@@ -3870,7 +3984,7 @@ function startMarbleRace() {
   let lastTime = performance.now();
   let glowPhase = 0;
 
-  marbleState = { raf: null };
+  marbleState = { raf: null, marbles, floorHoles };
 
   function getLeadY() {
     let minY = 0;
@@ -3933,59 +4047,81 @@ function startMarbleRace() {
       cameraY += (targetCamY - cameraY) * (1 - Math.pow(0.95, dt));
     }
 
-    // Wooden track background
-    // Wooden track background — prominent horizontal planks
-    const plankH = 36;
-    const plankOffset = ((cameraY % plankH) + plankH) % plankH;
-    const plankColors = ['#9B7E55', '#8B6F47', '#7D6340', '#8A7050'];
-    for (let py = -plankOffset - plankH; py < canvas.height + plankH; py += plankH) {
-      const plankIdx = Math.floor(((py + plankOffset + 10000 * plankH) / plankH)) % plankColors.length;
-      ctx.fillStyle = plankColors[plankIdx];
-      ctx.fillRect(trackLeft - 10, py, trackWidth + 20, plankH);
-      // Dark line between planks
-      ctx.fillStyle = '#5A4228';
-      ctx.fillRect(trackLeft - 10, py, trackWidth + 20, 2);
-      // Highlight on top edge of each plank
-      ctx.fillStyle = 'rgba(200,170,120,0.2)';
-      ctx.fillRect(trackLeft - 10, py + 2, trackWidth + 20, 1);
-    }
+    // === FUTURISTIC TRACK BACKGROUND ===
+    // Deep space base
+    ctx.fillStyle = '#050510';
+    ctx.fillRect(trackLeft - 14, 0, trackWidth + 28, canvas.height);
 
-    // Subtle wood grain (horizontal dashes within planks for texture)
-    ctx.strokeStyle = 'rgba(90,60,30,0.12)';
+    // Scrolling grid floor — neon teal lines
+    const gridH = 40;
+    const gridW = laneWidth;
+    const gridOffY = ((cameraY % gridH) + gridH) % gridH;
+    const gridOffX = ((cameraY * 0.1) % gridW + gridW) % gridW;
+    ctx.strokeStyle = 'rgba(0,220,255,0.12)';
     ctx.lineWidth = 1;
-    ctx.setLineDash([8, 15]);
-    for (let py = -plankOffset - plankH; py < canvas.height + plankH; py += plankH) {
-      for (let gy = 0; gy < 3; gy++) {
-        const grainY = py + 6 + gy * 10;
-        ctx.beginPath(); ctx.moveTo(trackLeft - 10, grainY); ctx.lineTo(trackLeft + trackWidth + 10, grainY); ctx.stroke();
-      }
+    // Horizontal grid lines
+    for (let gy = -gridOffY - gridH; gy < canvas.height + gridH; gy += gridH) {
+      ctx.beginPath(); ctx.moveTo(trackLeft - 14, gy); ctx.lineTo(trackLeft + trackWidth + 14, gy); ctx.stroke();
     }
-    ctx.setLineDash([]);
+    // Vertical grid lines
+    for (let gx = trackLeft - gridOffX; gx < trackLeft + trackWidth + 14; gx += gridW) {
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, canvas.height); ctx.stroke();
+    }
 
-    // Lane groove lines
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-    ctx.setLineDash([20, 10]);
-    ctx.lineWidth = 2;
+    // Lane dividers — faint neon lines
+    ctx.strokeStyle = 'rgba(0,180,255,0.18)';
+    ctx.setLineDash([12, 8]);
+    ctx.lineWidth = 1.5;
     for (let i = 1; i < n; i++) {
       const lx = trackLeft + i * laneWidth;
       ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, canvas.height); ctx.stroke();
     }
     ctx.setLineDash([]);
 
-    // Wooden rail borders — retro pixel style
-    const railPx = 3;
-    const railColors = ['#5C3A1E','#4A2E16','#6B4527','#3D2510'];
-    for (let ry = 0; ry < canvas.height; ry += railPx) {
-      const ci = (Math.floor(ry / railPx)) % railColors.length;
-      ctx.fillStyle = railColors[ci];
-      ctx.fillRect(trackLeft - 14, ry, 6, railPx);
-      ctx.fillRect(trackLeft + trackWidth + 8, ry, 6, railPx);
+    // Neon side rails — glowing cyan walls
+    const railGrd = ctx.createLinearGradient(trackLeft - 14, 0, trackLeft - 6, 0);
+    railGrd.addColorStop(0, 'rgba(0,255,255,0)');
+    railGrd.addColorStop(0.5, 'rgba(0,255,255,0.6)');
+    railGrd.addColorStop(1, 'rgba(0,200,255,0.2)');
+    ctx.fillStyle = railGrd;
+    ctx.fillRect(trackLeft - 14, 0, 8, canvas.height);
+    const railGrd2 = ctx.createLinearGradient(trackLeft + trackWidth + 6, 0, trackLeft + trackWidth + 14, 0);
+    railGrd2.addColorStop(0, 'rgba(0,200,255,0.2)');
+    railGrd2.addColorStop(0.5, 'rgba(0,255,255,0.6)');
+    railGrd2.addColorStop(1, 'rgba(0,255,255,0)');
+    ctx.fillStyle = railGrd2;
+    ctx.fillRect(trackLeft + trackWidth + 6, 0, 8, canvas.height);
+
+    // Scanlines (very subtle)
+    ctx.fillStyle = 'rgba(0,0,0,0.04)';
+    for (let sy2 = 0; sy2 < canvas.height; sy2 += 3) {
+      ctx.fillRect(trackLeft - 14, sy2, trackWidth + 28, 1);
     }
-    // Retro scanlines over the track (subtle)
-    ctx.fillStyle = 'rgba(0,0,0,0.06)';
-    for (let sy2 = 0; sy2 < canvas.height; sy2 += 4) {
-      ctx.fillRect(trackLeft - 10, sy2, trackWidth + 20, 2);
-    }
+
+    // Draw floor holes
+    floorHoles.forEach(hole => {
+      const hy = hole.y - cameraY;
+      if (hy < -hole.r * 2 || hy > canvas.height + hole.r * 2) return;
+      const pulse = 0.5 + 0.5 * Math.sin(glowPhase * 3 + hole.x);
+      // Outer danger ring
+      ctx.shadowBlur = 12 + pulse * 8; ctx.shadowColor = 'rgba(255,0,80,0.8)';
+      ctx.strokeStyle = `rgba(255,${Math.floor(30 + pulse * 40)},80,${0.6 + pulse * 0.4})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(hole.x, hy, hole.r + 3, 0, Math.PI * 2); ctx.stroke();
+      ctx.shadowBlur = 0;
+      // Black void
+      const holeGrd = ctx.createRadialGradient(hole.x, hy, 0, hole.x, hy, hole.r);
+      holeGrd.addColorStop(0, '#000000');
+      holeGrd.addColorStop(0.7, '#0a0008');
+      holeGrd.addColorStop(1, 'rgba(20,0,10,0.9)');
+      ctx.fillStyle = holeGrd;
+      ctx.beginPath(); ctx.arc(hole.x, hy, hole.r, 0, Math.PI * 2); ctx.fill();
+      // Warning ⚠ text
+      ctx.fillStyle = `rgba(255,50,80,${0.5 + pulse * 0.5})`;
+      ctx.font = `bold ${Math.max(8, hole.r * 0.7)}px monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('✕', hole.x, hy);
+    });
 
     // Halfway line at 10s
     if (elapsed >= 10 && !halfwayShown) {
@@ -4048,6 +4184,27 @@ function startMarbleRace() {
           sfx('finish');
         }
       });
+
+      // Floor hole collision — marble falls through if centre overlaps hole
+      if (!m.falling) {
+        floorHoles.forEach(hole => {
+          if (m.finished) return;
+          const dx = m.x - hole.x, dy = m.y - hole.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < hole.r * 0.7) {
+            // Chosen winner in creator mode never falls
+            if (creatorMode && creatorChosenWinner && m.name === creatorChosenWinner) return;
+            m.falling = true;
+            m.fallStart = t;
+            m.finished = true;
+            m.eliminated = true;
+            sfx('hit');
+            // Update scoreboard to show eliminated
+            const el = document.getElementById('mr_' + m.name.replace(/\s/g, '_'));
+            if (el) { el.style.textDecoration = 'line-through'; el.style.opacity = '0.4'; }
+          }
+        });
+      }
 
       // Big powerup collision
       bigPowerups.forEach(pw => {
@@ -4374,6 +4531,21 @@ function startMarbleRace() {
       const sy = m.y - cameraY;
       const mR = marbleR * (m.sizeMultiplier || 1);
       if (sy < -mR * 2 || sy > canvas.height + mR * 2) return;
+      // Falling animation — marble shrinks into hole
+      if (m.falling) {
+        const elapsed = t - m.fallStart;
+        const progress = Math.min(1, elapsed / 600);
+        const scale = 1 - progress;
+        if (scale <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = 1 - progress;
+        ctx.translate(m.x, sy);
+        ctx.scale(scale, scale);
+        drawMarble(m, 0);
+        ctx.restore();
+        ctx.globalAlpha = 1;
+        return;
+      }
       // Boost trail effect
       if (m.boostTime !== null) {
         const boostElapsed = (t - m.boostTime) / 1000;
@@ -4404,10 +4576,23 @@ function startMarbleRace() {
       ctx.beginPath(); ctx.moveTo(trackLeft - 10, startLineY); ctx.lineTo(trackLeft + trackWidth + 10, startLineY); ctx.stroke();
     }
 
-    // Side background - dark wood
-    ctx.fillStyle = '#2A1A0A';
+    // Side background - deep space with stars
+    ctx.fillStyle = '#020208';
     ctx.fillRect(0, 0, trackLeft - 14, canvas.height);
     ctx.fillRect(trackLeft + trackWidth + 14, 0, canvas.width, canvas.height);
+    // Static star field on sides
+    if (!marbleState._stars) {
+      marbleState._stars = Array.from({length: 60}, () => ({
+        x: Math.random() < 0.5 ? Math.random() * (trackLeft - 14) : (trackLeft + trackWidth + 14) + Math.random() * (canvas.width - trackLeft - trackWidth - 14),
+        y: Math.random() * canvas.height,
+        r: 0.5 + Math.random() * 1.5,
+        a: 0.3 + Math.random() * 0.7
+      }));
+    }
+    marbleState._stars.forEach(star => {
+      ctx.fillStyle = `rgba(180,220,255,${star.a})`;
+      ctx.fillRect(star.x, star.y, star.r, star.r);
+    });
 
     // === MINI TRACK MAP ===
     // Draw on the left side panel
@@ -8180,6 +8365,491 @@ function darkenColor(hex, factor) {
   return `rgb(${Math.floor(r*factor)},${Math.floor(g*factor)},${Math.floor(b*factor)})`;
 }
 
+// ============ SNAKE ROYALE ============
+let snakeState = null;
+const SNAKE_DURATION = 20000; // 20 seconds
+
+function cleanupSnake() {
+  if (snakeState && snakeState.raf) cancelAnimationFrame(snakeState.raf);
+  snakeState = null;
+  const statusEl = document.getElementById('snakeStatus');
+  if (statusEl) { statusEl.classList.remove('visible'); statusEl.innerHTML = ''; }
+  const hudEl = document.getElementById('snakeHUD');
+  if (hudEl) { hudEl.textContent = '20'; hudEl.className = ''; }
+}
+
+function initSnake() {
+  showScreen('snakeScreen');
+  currentGameCleanup = cleanupSnake;
+  showGameIntro('snake', startSnakeGame);
+}
+
+function startSnakeGame() {
+  const canvas = document.getElementById('snakeCanvas');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // Grid setup
+  const CELL = Math.max(14, Math.min(22, Math.floor(Math.min(W, H) / 38)));
+  const COLS = Math.floor(W / CELL);
+  const ROWS = Math.floor(H / CELL);
+  // Offset to centre the grid
+  const offX = Math.floor((W - COLS * CELL) / 2);
+  const offY = Math.floor((H - ROWS * CELL) / 2);
+
+  const TICK = creatorMode ? 110 : 150;
+  const N = players.length;
+
+  // Spread starting positions evenly around the grid (avoid edges)
+  function startPositions(n) {
+    const margin = 4;
+    const positions = [];
+    // Arrange in a grid pattern across the playfield
+    const cols = Math.ceil(Math.sqrt(n));
+    const rows = Math.ceil(n / cols);
+    const cw = Math.floor((COLS - margin * 2) / cols);
+    const rh = Math.floor((ROWS - margin * 2) / rows);
+    for (let i = 0; i < n; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const cx = margin + Math.floor(cw * (col + 0.5));
+      const cy = margin + Math.floor(rh * (row + 0.5));
+      positions.push({x: Math.min(cx, COLS - margin - 1), y: Math.min(cy, ROWS - margin - 1)});
+    }
+    return positions;
+  }
+
+  const startPos = startPositions(N);
+  // Direction pointing toward centre from start
+  const cx = Math.floor(COLS / 2), cy = Math.floor(ROWS / 2);
+
+  const snakes = players.map((name, i) => {
+    const head = startPos[i];
+    const dx = head.x < cx ? 1 : head.x > cx ? -1 : (Math.random() < 0.5 ? 1 : -1);
+    const dy = head.y < cy ? 1 : head.y > cy ? -1 : 0;
+    const dir = Math.abs(head.x - cx) >= Math.abs(head.y - cy) ? {dx, dy:0} : {dx:0, dy: head.y < cy ? 1 : -1};
+    return {
+      name,
+      color: COLORS[i % COLORS.length],
+      body: [{...head}],  // starts length 1
+      dir,
+      alive: true,
+      growing: 3,  // start with 3 free grows
+      score: 0,
+      deathTime: null,
+      deathFlash: 0
+    };
+  });
+
+  // Spawn food avoiding snake bodies
+  function spawnFood(count) {
+    const foods = [];
+    const occupied = new Set(snakes.flatMap(s => s.body.map(b => `${b.x},${b.y}`)));
+    let attempts = 0;
+    while (foods.length < count && attempts < 1000) {
+      attempts++;
+      const x = 1 + Math.floor(Math.random() * (COLS - 2));
+      const y = 1 + Math.floor(Math.random() * (ROWS - 2));
+      const key = `${x},${y}`;
+      if (!occupied.has(key) && !foods.find(f => f.x === x && f.y === y)) {
+        foods.push({x, y, pulse: Math.random() * Math.PI * 2});
+      }
+    }
+    return foods;
+  }
+
+  // In creator mode, bias food toward chosen winner's head
+  function spawnFoodCreator() {
+    if (!creatorMode || !creatorChosenWinner) return spawnFood(1)[0];
+    const winner = snakes.find(s => s.name === creatorChosenWinner && s.alive);
+    if (!winner) return spawnFood(1)[0];
+    const head = winner.body[0];
+    const occupied = new Set(snakes.flatMap(s => s.body.map(b => `${b.x},${b.y}`)));
+    // Try to spawn within 5-10 cells of winner's head
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const r = 5 + Math.floor(Math.random() * 6);
+      const angle = Math.random() * Math.PI * 2;
+      const x = Math.round(head.x + Math.cos(angle) * r);
+      const y = Math.round(head.y + Math.sin(angle) * r);
+      if (x >= 1 && x < COLS - 1 && y >= 1 && y < ROWS - 1 && !occupied.has(`${x},${y}`)) {
+        return {x, y, pulse: 0};
+      }
+    }
+    return spawnFood(1)[0];
+  }
+
+  const initialFoodCount = Math.min(N + 2, 8);
+  let foods = spawnFood(initialFoodCount);
+
+  // AI: get best move direction for a snake
+  function getAIMove(snake) {
+    const head = snake.body[0];
+    const dirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}];
+
+    // Don't reverse
+    const antiDx = -snake.dir.dx, antiDy = -snake.dir.dy;
+
+    // Build occupied set (exclude tails — they move away next tick)
+    const occupied = new Set();
+    snakes.forEach(s => {
+      if (!s.alive) return;
+      // exclude last segment of own tail (it'll vacate)
+      const limit = s === snake ? s.body.length - 1 : s.body.length;
+      for (let i = 0; i < limit; i++) occupied.add(`${s.body[i].x},${s.body[i].y}`);
+    });
+
+    const candidates = dirs.filter(d => {
+      if (d.dx === antiDx && d.dy === antiDy) return false;
+      const nx = head.x + d.dx, ny = head.y + d.dy;
+      if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) return false;
+      if (occupied.has(`${nx},${ny}`)) return false;
+      return true;
+    });
+
+    if (candidates.length === 0) return snake.dir; // no escape, die
+
+    // Score each candidate: prefer food proximity + open space
+    const isChosen = creatorMode && creatorChosenWinner && snake.name === creatorChosenWinner;
+
+    const scored = candidates.map(d => {
+      const nx = head.x + d.dx, ny = head.y + d.dy;
+      // Distance to nearest food
+      let foodDist = Infinity;
+      foods.forEach(f => {
+        const dist = Math.abs(f.x - nx) + Math.abs(f.y - ny);
+        if (dist < foodDist) foodDist = dist;
+      });
+      // Quick open-space estimate (look-ahead 3 steps)
+      let openScore = 0;
+      const check = [{x: nx, y: ny}];
+      const seen = new Set([`${nx},${ny}`]);
+      for (let step = 0; step < 3; step++) {
+        const next = [];
+        check.forEach(pos => {
+          dirs.forEach(dd => {
+            const cx2 = pos.x + dd.dx, cy2 = pos.y + dd.dy;
+            const k = `${cx2},${cy2}`;
+            if (!seen.has(k) && cx2 >= 0 && cx2 < COLS && cy2 >= 0 && cy2 < ROWS && !occupied.has(k)) {
+              seen.add(k); next.push({x: cx2, y: cy2}); openScore++;
+            }
+          });
+        });
+        check.length = 0; check.push(...next);
+      }
+      // Chosen winner gets a big food boost to steer toward food
+      const foodScore = isChosen ? -foodDist * 3 : -foodDist * 1.2;
+      // Reduce open-space weight — snakes don't flee as much, creates more clashes
+      return {d, score: foodScore + openScore * 0.15};
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    // 20% chance non-chosen snakes pick a random safe move (makes them wander into others)
+    if (!isChosen && Math.random() < 0.20 && candidates.length > 1) {
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+    return scored[0].d;
+  }
+
+  function tickSnakes() {
+    // Move all alive snakes simultaneously
+    const newHeads = snakes.map(s => {
+      if (!s.alive) return null;
+      s.dir = getAIMove(s);
+      return {x: s.body[0].x + s.dir.dx, y: s.body[0].y + s.dir.dy};
+    });
+
+    // Detect collisions
+    snakes.forEach((s, i) => {
+      if (!s.alive) return;
+      const nh = newHeads[i];
+      // Wall collision
+      if (nh.x < 0 || nh.x >= COLS || nh.y < 0 || nh.y >= ROWS) {
+        s.alive = false; s.deathTime = performance.now(); return;
+      }
+      // Self collision (against current body, not new head)
+      const limit = s.growing > 0 ? s.body.length : s.body.length - 1;
+      for (let j = 0; j < limit; j++) {
+        if (s.body[j].x === nh.x && s.body[j].y === nh.y) {
+          s.alive = false; s.deathTime = performance.now(); return;
+        }
+      }
+      // Collision with other snakes (current bodies)
+      snakes.forEach((other, j) => {
+        if (j === i || !other.alive) return;
+        const otherLimit = other.growing > 0 ? other.body.length : other.body.length - 1;
+        for (let k = 0; k < otherLimit; k++) {
+          if (other.body[k].x === nh.x && other.body[k].y === nh.y) {
+            // Creator mode: chosen winner can't die from others
+            if (creatorMode && creatorChosenWinner && s.name === creatorChosenWinner) {
+              other.alive = false; other.deathTime = performance.now();
+            } else {
+              s.alive = false; s.deathTime = performance.now();
+            }
+            return;
+          }
+        }
+      });
+    });
+
+    // Head-on collision (two snakes swap heads)
+    snakes.forEach((s, i) => {
+      snakes.forEach((other, j) => {
+        if (j <= i || !s.alive || !other.alive) return;
+        if (newHeads[i] && newHeads[j] && newHeads[i].x === newHeads[j].x && newHeads[i].y === newHeads[j].y) {
+          if (creatorMode && creatorChosenWinner) {
+            const killS = s.name === creatorChosenWinner ? other : s;
+            killS.alive = false; killS.deathTime = performance.now();
+          } else {
+            s.alive = false; s.deathTime = performance.now();
+            other.alive = false; other.deathTime = performance.now();
+          }
+        }
+      });
+    });
+
+    // Apply movement and food consumption
+    snakes.forEach((s, i) => {
+      if (!s.alive) return;
+      const nh = newHeads[i];
+      s.body.unshift({...nh});
+      // Check food
+      const fi = foods.findIndex(f => f.x === nh.x && f.y === nh.y);
+      if (fi !== -1) {
+        s.growing += 3;
+        s.score++;
+        foods.splice(fi, 1);
+        // Respawn food
+        const newFood = creatorMode ? spawnFoodCreator() : spawnFood(1)[0];
+        if (newFood) foods.push(newFood);
+        sfx('powerup');
+      }
+      // Shrink tail unless growing
+      if (s.growing > 0) {
+        s.growing--;
+      } else {
+        s.body.pop();
+      }
+    });
+
+    updateSnakeScoreboard();
+  }
+
+  function updateSnakeScoreboard() {
+    const info = document.getElementById('snakeInfo');
+    if (!info) return;
+    info.innerHTML = snakes.map(s =>
+      `<div class="sn-entry ${s.alive ? '' : 'sn-dead'}">
+        <div class="sn-dot" style="background:${s.color}"></div>
+        <span style="color:${s.color}">${s.name}</span>
+        <span style="color:#888;margin-left:4px">${s.body.length}</span>
+      </div>`
+    ).join('');
+  }
+
+  function drawGame(now) {
+    ctx.fillStyle = '#030a03';
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle grid
+    ctx.strokeStyle = 'rgba(0,60,0,0.35)';
+    ctx.lineWidth = 0.5;
+    for (let c = 0; c <= COLS; c++) {
+      ctx.beginPath(); ctx.moveTo(offX + c * CELL, offY); ctx.lineTo(offX + c * CELL, offY + ROWS * CELL); ctx.stroke();
+    }
+    for (let r = 0; r <= ROWS; r++) {
+      ctx.beginPath(); ctx.moveTo(offX, offY + r * CELL); ctx.lineTo(offX + COLS * CELL, offY + r * CELL); ctx.stroke();
+    }
+
+    // Food — pulsing bright dots
+    foods.forEach(f => {
+      f.pulse = (f.pulse || 0) + 0.08;
+      const scale = 0.45 + 0.15 * Math.sin(f.pulse);
+      const r = CELL * scale;
+      const fx = offX + (f.x + 0.5) * CELL;
+      const fy = offY + (f.y + 0.5) * CELL;
+      ctx.shadowBlur = 10; ctx.shadowColor = '#ff0';
+      ctx.fillStyle = '#ffe066';
+      ctx.beginPath(); ctx.arc(fx, fy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      // Small pixel cross
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(fx - 1, fy - CELL * 0.2, 2, CELL * 0.4);
+      ctx.fillRect(fx - CELL * 0.2, fy - 1, CELL * 0.4, 2);
+    });
+
+    // Snakes
+    const isDone = snakeState && snakeState.phase === 'done';
+    const winnerSnake = isDone ? snakeState.winner : null;
+
+    snakes.forEach(s => {
+      const isWinner = winnerSnake && s === winnerSnake;
+
+      if (!s.alive && !isWinner) {
+        // Flash on death then fade
+        const elapsed = now - s.deathTime;
+        if (elapsed < 600) {
+          const alpha = Math.max(0, 1 - elapsed / 600) * (Math.sin(elapsed / 60) > 0 ? 1 : 0.3);
+          ctx.globalAlpha = alpha;
+        } else {
+          ctx.globalAlpha = 0;
+        }
+      }
+
+      // Winner pulse in done phase
+      const winnerGlow = isWinner ? (0.7 + 0.3 * Math.sin(now / 120)) : 0;
+
+      s.body.forEach((seg, idx) => {
+        const isHead = idx === 0;
+        const gap = 1.5;
+        const sx = offX + seg.x * CELL + gap;
+        const sy = offY + seg.y * CELL + gap;
+        const sw = CELL - gap * 2;
+
+        if (isHead) {
+          ctx.shadowBlur = isWinner ? 28 : 12;
+          ctx.shadowColor = isWinner ? '#fff' : s.color;
+          ctx.fillStyle = isWinner ? '#fff' : s.color;
+          ctx.fillRect(sx - 1, sy - 1, sw + 2, sw + 2);
+          ctx.shadowBlur = 0;
+
+          // Eyes
+          const eyeSize = Math.max(2, CELL * 0.18);
+          ctx.fillStyle = '#000';
+          const ex1 = sx + sw * 0.25, ex2 = sx + sw * 0.65;
+          const ey = sy + sw * 0.28;
+          ctx.fillRect(ex1, ey, eyeSize, eyeSize);
+          ctx.fillRect(ex2, ey, eyeSize, eyeSize);
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(ex1 + 1, ey, eyeSize * 0.5, eyeSize * 0.5);
+          ctx.fillRect(ex2 + 1, ey, eyeSize * 0.5, eyeSize * 0.5);
+
+          // Name label above head
+          const nameY = offY + seg.y * CELL - 4;
+          if (nameY > 14) {
+            ctx.font = `bold ${Math.max(8, CELL * 0.55)}px 'Press Start 2P', monospace`;
+            ctx.textAlign = 'center';
+            ctx.fillStyle = isWinner ? '#fff' : s.color;
+            ctx.shadowBlur = isWinner ? 18 : 6;
+            ctx.shadowColor = isWinner ? '#fff' : s.color;
+            ctx.fillText(s.name, offX + (seg.x + 0.5) * CELL, nameY);
+            ctx.shadowBlur = 0;
+          }
+
+          // Winner crown
+          if (isWinner) {
+            ctx.font = `${Math.max(12, CELL)}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.fillText('👑', offX + (seg.x + 0.5) * CELL, offY + seg.y * CELL - CELL * 0.1);
+          }
+        } else {
+          // Body segments — pulse white on winner, else checkerboard
+          if (isWinner) {
+            const bright = idx % 2 === 0 ? 1 : 0.75;
+            ctx.globalAlpha = bright * (0.7 + 0.3 * Math.sin(now / 120 + idx * 0.3));
+            ctx.shadowBlur = 8; ctx.shadowColor = s.color;
+            ctx.fillStyle = s.color;
+            ctx.fillRect(sx, sy, sw, sw);
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+          } else {
+            const shade = idx % 2 === 0 ? s.color : darkenColor(s.color, 0.75);
+            ctx.fillStyle = shade;
+            ctx.fillRect(sx, sy, sw, sw);
+          }
+        }
+      });
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  let lastTick = performance.now();
+
+  snakeState = {
+    raf: null,
+    snakes,
+    foods,
+    phase: 'playing',
+    startTime: performance.now(),
+    timeLeft: SNAKE_DURATION,
+    cols: COLS,
+    rows: ROWS
+  };
+
+  const hudEl = document.getElementById('snakeHUD');
+  const statusEl = document.getElementById('snakeStatus');
+  updateSnakeScoreboard();
+
+  function snakeLoop() {
+    const now = performance.now();
+    const s = snakeState;
+
+    if (s.phase === 'playing') {
+      // Tick
+      if (now - lastTick >= TICK) {
+        lastTick = now;
+        tickSnakes();
+      }
+
+      // Timer
+      s.timeLeft = Math.max(0, SNAKE_DURATION - (now - s.startTime));
+      const secs = Math.ceil(s.timeLeft / 1000);
+      if (hudEl) {
+        hudEl.textContent = secs;
+        hudEl.className = secs <= 5 ? 'danger' : '';
+      }
+
+      // Win conditions
+      const alive = snakes.filter(sn => sn.alive);
+      const timedOut = s.timeLeft <= 0;
+      if (alive.length <= 1 || timedOut) {
+        // Longest snake wins (by body length)
+        const winner = [...snakes].sort((a, b) => b.body.length - a.body.length)[0];
+        s.winner = winner;
+        s.timedOut = timedOut;
+        s.phase = 'done';
+        s.doneTime = now;
+        if (hudEl) hudEl.textContent = '🏆';
+        if (statusEl) {
+          statusEl.innerHTML = timedOut
+            ? `⏱️ TIME UP!<br><span style="font-size:0.6em;color:${winner.color}">${winner.name.toUpperCase()} HAD THE LONGEST SNAKE!</span>`
+            : `${winner.name.toUpperCase()}<br><span style="font-size:0.6em">LAST SNAKE STANDING!</span>`;
+          statusEl.style.color = winner.color;
+          statusEl.style.textShadow = `0 0 30px ${winner.color}, 0 0 60px ${winner.color}`;
+          statusEl.classList.add('visible');
+        }
+        sfx('cheer');
+      }
+    }
+
+    drawGame(now);
+
+    if (s.phase === 'done' && now - s.doneTime > 2500) {
+      // Calculate cropHint: winning snake's head Y as fraction of canvas height
+      // so the polaroid crop centres on the winner on mobile portrait screens
+      let cropHint = 0.42;
+      if (s.winner && s.winner.body && s.winner.body.length > 0) {
+        const head = s.winner.body[0];
+        // Find the midpoint of the snake body for a better crop
+        const midIdx = Math.floor(s.winner.body.length / 2);
+        const mid = s.winner.body[midIdx];
+        const headCanvasY = offY + head.y * CELL;
+        const midCanvasY = offY + mid.y * CELL;
+        const avgY = (headCanvasY + midCanvasY) / 2;
+        cropHint = Math.max(0.1, Math.min(0.9, avgY / canvas.height));
+      }
+      captureCanvasMoment('snakeCanvas', s.winner.name, cropHint);
+      showWinner(s.winner.name);
+      return;
+    }
+
+    s.raf = requestAnimationFrame(snakeLoop);
+  }
+
+  snakeState.raf = requestAnimationFrame(snakeLoop);
+}
+
 // ============ CREATOR MODE ============
 // Format: {q: question, opts: [options], spicy: index_of_funniest}
 const CREATOR_QUESTIONS = [
@@ -8456,6 +9126,18 @@ function showCreatorSetup() {
   inputQ.value = '';
   creatorRevealed = false;
   creatorQ = null;
+
+  // Preload: warm up audio context and pre-render all game canvases off-screen
+  // so the first recorded frame has no jank
+  initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  // Pre-touch each game canvas so the GPU has them ready
+  ['marbleCanvas','battleCanvas','horsesCanvas','engulfCanvas'].forEach(id => {
+    const c = document.getElementById(id);
+    if (c) { c.width = c.width; } // forces a layout flush & GPU allocation
+  });
+  // Pre-load the Press Start 2P font so it doesn't FOUT during recording
+  document.fonts && document.fonts.load('1em "Press Start 2P"');
 
   // Build 2 empty option inputs
   crBuildOptInputs();
@@ -8755,8 +9437,8 @@ function showCreatorHook() {
   const decideTime = baseDelay + n * optDelay + 0.3;
   setTimeout(() => { decideEl.style.animation = ''; sfxMachineDecide(); }, decideTime * 1000);
 
-  // Advance to game 0.7s after "THE MACHINE WILL DECIDE" appears
-  const totalHookTime = (decideTime + 0.7) * 1000;
+  // Advance to game 1.7s after "THE MACHINE WILL DECIDE" appears (extra second to linger)
+  const totalHookTime = (decideTime + 1.7) * 1000;
   setTimeout(() => {
     hookEl.classList.remove('active');
     hookEl.classList.remove('cr-flash');
@@ -8767,19 +9449,164 @@ function showCreatorHook() {
 
 // ---- Game phase: let game play to natural completion ----
 function creatorStartGame() {
-  const creatorGames = ['marble', 'battle', 'horses', 'engulf'];
+  const creatorGames = ['marble', 'battle', 'horses', 'engulf', 'snake'];
   const pick = creatorGames[Math.floor(Math.random() * creatorGames.length)];
   enabledGames = [pick];
   initAudio();
   creatorRevealed = false;
   startGame(pick);
-  // No force timer — the game plays to its natural ending.
-  // The showWinner override below catches the real winner and routes to the reveal.
+  // Start commentary after a short delay to let the game render first
+  setTimeout(() => startCreatorCommentary(pick), 800);
+}
+
+// ---- Running commentary system (creator mode only) ----
+let _crCommInterval = null;
+let _crCommTimeout = null;
+
+function startCreatorCommentary(gameType) {
+  stopCreatorCommentary();
+  const el = document.getElementById('crCommentary');
+  if (!el) return;
+  let tick = 0;
+  function fireCommentary() {
+    const line = getCommentaryLine(gameType, tick++);
+    if (!line) return;
+    el.textContent = line;
+    el.classList.remove('cr-comm-hide');
+    el.classList.add('cr-comm-show');
+    _crCommTimeout = setTimeout(() => {
+      el.classList.remove('cr-comm-show');
+      el.classList.add('cr-comm-hide');
+    }, 2000);
+  }
+  fireCommentary();
+  _crCommInterval = setInterval(fireCommentary, 2800);
+}
+
+function stopCreatorCommentary() {
+  if (_crCommInterval) { clearInterval(_crCommInterval); _crCommInterval = null; }
+  if (_crCommTimeout) { clearTimeout(_crCommTimeout); _crCommTimeout = null; }
+  const el = document.getElementById('crCommentary');
+  if (el) { el.classList.remove('cr-comm-show'); el.classList.add('cr-comm-hide'); }
+}
+
+function getCommentaryLine(gameType, tick) {
+  // Generic openers for first few ticks
+  const openers = [
+    '👀 THE COMPUTER IS ANALYSING...',
+    '🔥 THIS IS GOING TO BE CLOSE!',
+    '⚡ THE ALGORITHM NEVER LIES!',
+    '🖥️ PROCESSING DEBATE DATA...',
+  ];
+  if (tick === 0) return openers[Math.floor(Math.random() * openers.length)];
+
+  if (gameType === 'marble') {
+    const ms = marbleState;
+    if (!ms || !ms.marbles) return null;
+    const alive = ms.marbles.filter(m => !m.finished);
+    if (alive.length === 0) return null;
+    const sorted = [...alive].sort((a, b) => a.y - b.y);
+    const leader = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const lines = [
+      `🏁 ${leader.name.toUpperCase()} LEADS THE PACK!`,
+      `🔥 CAN ANYONE CATCH ${leader.name.toUpperCase()}?!`,
+      `😤 ${last.name.toUpperCase()} NEEDS TO PUSH HARDER!`,
+      `⚡ ${leader.name.toUpperCase()} IS FLYING DOWN THE TRACK!`,
+      alive.length >= 2 ? `🎯 ${sorted[1].name.toUpperCase()} IS RIGHT ON THEIR TAIL!` : null,
+      `💥 MARBLE MAYHEM — ANYTHING COULD HAPPEN!`,
+      `🖥️ THE ALGORITHM PREDICTED ${creatorChosenWinner ? creatorChosenWinner.toUpperCase() : leader.name.toUpperCase()}!`,
+    ].filter(Boolean);
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
+  if (gameType === 'battle') {
+    const bs = battleState;
+    if (!bs || !bs.chars) return null;
+    const alive = bs.chars.filter(c => c.alive);
+    if (alive.length === 0) return null;
+    const injured = alive.filter(c => c.injured);
+    const lines = [
+      `⚔️ ${alive.length} FIGHTERS REMAIN!`,
+      alive.length <= 2 ? `💀 FINAL SHOWDOWN! ${alive.map(c => c.name.toUpperCase()).join(' VS ')}!` : `🔥 CHAOS ON THE BATTLEFIELD!`,
+      alive.length <= 3 ? `😱 IT'S ALMOST OVER — WHO SURVIVES?!` : `💥 TOTAL CARNAGE OUT THERE!`,
+      injured.length > 0 ? `🩸 ${injured[0].name.toUpperCase()} IS HURT — STAY ALIVE!` : `⚡ NO MERCY IN THIS ARENA!`,
+      `🖥️ THE COMPUTER FORESAW THIS BATTLE!`,
+      `🎯 EVERY HIT COULD BE THE LAST!`,
+      creatorChosenWinner ? `👑 CAN ${creatorChosenWinner.toUpperCase()} HOLD ON?!` : `🔥 WHO WANTS IT MORE?!`,
+    ];
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
+  if (gameType === 'horses') {
+    const hs = horsesState;
+    if (!hs || !hs.horses) return null;
+    const alive = hs.horses.filter(h => h.alive);
+    if (alive.length === 0) return null;
+    const sorted = [...alive].sort((a, b) => b.x - a.x);
+    const leader = sorted[0];
+    const fell = hs.horses.filter(h => !h.alive);
+    const lines = [
+      `🐴 ${leader.name.toUpperCase()} TAKES THE LEAD!`,
+      `🏇 AND THEY'RE OFF — ${leader.name.toUpperCase()} OUT FRONT!`,
+      fell.length > 0 ? `😬 ${fell[fell.length-1].name.toUpperCase()} IS DOWN! HEARTBREAKING!` : `🔥 THUNDERING DOWN THE TRACK!`,
+      alive.length <= 2 ? `👀 IT'S A TWO-HORSE RACE NOW!` : `⚡ NECK AND NECK AT THE BACK!`,
+      creatorChosenWinner ? `🎯 ${creatorChosenWinner.toUpperCase()} LOOKING STRONG!` : `🏁 THE FINISH LINE IS CLOSE!`,
+      `🖥️ THE ALGORITHM KNOWS WHICH HORSE WINS!`,
+      `😤 THE CROWD IS ON THEIR FEET!`,
+    ];
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
+  if (gameType === 'snake') {
+    const ss = snakeState;
+    if (!ss || !ss.snakes) return null;
+    const alive = ss.snakes.filter(sn => sn.alive);
+    const dead = ss.snakes.filter(sn => !sn.alive);
+    if (alive.length === 0) return null;
+    const longest = [...alive].sort((a, b) => b.body.length - a.body.length)[0];
+    const shortest = [...alive].sort((a, b) => a.body.length - b.body.length)[0];
+    const secs = Math.ceil((ss.timeLeft || 0) / 1000);
+    const lines = [
+      `🐍 ${longest.name.toUpperCase()} IS THE LONGEST SNAKE!`,
+      alive.length >= 2 ? `💀 AVOID ${alive[Math.floor(Math.random()*alive.length)].name.toUpperCase()}!` : null,
+      dead.length > 0 ? `☠️ ${dead[dead.length-1].name.toUpperCase()} HAS BEEN ELIMINATED!` : `🔥 EVERY SNAKE STILL ALIVE!`,
+      secs <= 10 ? `⏱️ ${secs} SECONDS LEFT — GO GO GO!` : `🎯 GROW OR DIE — NO MERCY!`,
+      alive.length <= 2 ? `👀 FINAL TWO! ${alive.map(s => s.name.toUpperCase()).join(' VS ')}!` : `🌀 CARNAGE ON THE GRID!`,
+      creatorChosenWinner ? `⚡ ${creatorChosenWinner.toUpperCase()} HUNTING FOR FOOD!` : `🔥 WHO CAN EAT THE MOST?!`,
+      `🖥️ THE ALGORITHM CONTROLS THE SNAKES!`,
+      `😤 ONE WRONG MOVE AND IT'S OVER!`,
+    ].filter(Boolean);
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
+  if (gameType === 'engulf') {
+    const es = engulfState;
+    if (!es || !es.octagons) return null;
+    const alive = es.octagons.filter(o => o.alive);
+    if (alive.length === 0) return null;
+    const sorted = [...alive].sort((a, b) => b.volume - a.volume);
+    const biggest = sorted[0];
+    const smallest = sorted[sorted.length - 1];
+    const lines = [
+      `🔵 ${biggest.name.toUpperCase()} IS THE BIGGEST — WATCH OUT!`,
+      `😱 ${smallest.name.toUpperCase()} IS TINY — RUN!`,
+      alive.length <= 2 ? `💥 LAST TWO STANDING — ${sorted.map(o => o.name.toUpperCase()).join(' VS ')}!` : `🌀 ENGULF OR BE ENGULFED!`,
+      `⚡ ${biggest.name.toUpperCase()} IS GROWING AT AN ALARMING RATE!`,
+      creatorChosenWinner ? `👑 ${creatorChosenWinner.toUpperCase()} IS DOMINATING!` : `🔥 PURE CHAOS IN THE ARENA!`,
+      `🖥️ SIZE IS EVERYTHING IN THIS GAME!`,
+      `😤 ONE WRONG MOVE AND IT'S OVER!`,
+    ];
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
+  return null;
 }
 
 // ---- Reveal screen ----
 function showCreatorReveal(winnerName) {
   stopMusic();
+  stopCreatorCommentary();
 
   const revealEl = document.getElementById('creatorRevealScreen');
   const answerEl = document.getElementById('crRevealAnswer');
