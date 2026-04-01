@@ -759,6 +759,13 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 .cr-q-row input:focus { border-color:#f5a623; box-shadow:0 0 8px rgba(245,166,35,0.3); }
 .cr-q-row input::placeholder { color:#555; }
 
+/* Game selector */
+.cr-game-row { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; width:min(95%,500px); z-index:3; margin:8px 0 4px; }
+.cr-game-btn { font-family:'Press Start 2P',monospace; font-size:clamp(0.32em,1.1vw,0.42em); background:#1a1a2e; border:2px solid #333; color:#888; padding:7px 10px; cursor:pointer; border-radius:4px; transition:border-color 0.15s,color 0.15s,background 0.15s; white-space:nowrap; }
+.cr-game-btn:hover { border-color:#f5a623; color:#f5a623; }
+.cr-game-btn.selected { border-color:#2ecc71; color:#2ecc71; background:#0d2e1a; box-shadow:0 0 8px rgba(46,204,113,0.35); }
+.cr-game-label { font-family:'Press Start 2P',monospace; font-size:clamp(0.35em,1.2vw,0.42em); color:#555; margin:10px 0 4px; z-index:3; text-align:center; letter-spacing:1px; }
+
 .cr-go-btn { font-family:'Press Start 2P',monospace; font-size:clamp(0.6em,2vw,0.8em); background:linear-gradient(180deg,#2ecc71,#1a9c57); color:#fff; border:none; padding:14px 40px; cursor:pointer; border-radius:4px; box-shadow:0 4px 20px rgba(46,204,113,0.4); z-index:3; margin:10px 0 18px; transition:transform 0.15s,box-shadow 0.15s; }
 .cr-go-btn:hover { transform:scale(1.08); box-shadow:0 6px 30px rgba(46,204,113,0.6); }
 .cr-go-btn:disabled { opacity:0.4; pointer-events:none; }
@@ -937,6 +944,8 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
   <div class="cr-q-row">
     <input type="text" id="crInputQ" placeholder="QUESTION (optional)" maxlength="60" autocomplete="off">
   </div>
+  <div class="cr-game-label">🎮 SELECT GAME (OR LEAVE RANDOM)</div>
+  <div class="cr-game-row" id="crGameRow"></div>
   <div class="cr-winner-label">⬇ SELECT WINNER ⬇</div>
   <div class="cr-custom-area" id="crOptsArea"></div>
   <button class="cr-go-btn" id="crGoBtn" onclick="creatorLaunch()" disabled>🕹️ GO</button>
@@ -3591,10 +3600,56 @@ function initShips() {
       grid.appendChild(cell);
     }
   }
-  document.getElementById('shipsStatus').textContent = `${players[0]} - place your ship!`;
   cannonCooldown = false;
   document.getElementById('cannonWholeGroup').classList.remove('cooldown');
   currentGameCleanup = cleanupShips;
+
+  // Creator mode: auto-place ships in spread-out grid squares, skip placement phase
+  if (creatorMode) {
+    document.getElementById('shipsStatus').textContent = 'Fire!';
+    const cells = document.querySelectorAll('.grid-cell');
+    // Spread positions: fill in a diagonal/spread pattern across the 4x4 grid
+    const positions = [];
+    const used = new Set();
+    // Try to spread players across the grid evenly
+    const allCells = [];
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) allCells.push({r,c,key:`${r},${c}`});
+    // Shuffle then pick spread-out positions
+    allCells.sort(() => Math.random() - 0.5);
+    players.forEach((_, idx) => {
+      // Find a cell not too close to already chosen ones
+      let best = null;
+      for (const candidate of allCells) {
+        if (used.has(candidate.key)) continue;
+        if (!best) { best = candidate; continue; }
+        // Prefer cells far from all chosen positions
+        const minDist = positions.reduce((min, p) => Math.min(min, Math.abs(p.r - candidate.r) + Math.abs(p.c - candidate.c)), Infinity);
+        const bestDist = positions.reduce((min, p) => Math.min(min, Math.abs(p.r - best.r) + Math.abs(p.c - best.c)), Infinity);
+        if (minDist > bestDist) best = candidate;
+      }
+      if (!best) best = allCells.find(c => !used.has(c.key));
+      used.add(best.key);
+      positions.push(best);
+    });
+    positions.forEach((pos, idx) => {
+      const sailColor = COLORS[idx];
+      shipsState.ships[pos.key] = { player: idx, destroyed: false };
+      const cell = cells[pos.r * 4 + pos.c];
+      cell.innerHTML = `<svg viewBox="0 0 40 40" width="100%" height="100%"><path d="M6,28 L10,36 L30,36 L34,28 Z" fill="#5c3a1e" stroke="#3d2510" stroke-width="0.8"/><line x1="6" y1="28" x2="34" y2="28" stroke="#3d2510" stroke-width="1"/><rect x="18" y="8" width="2.5" height="20" fill="#5c3a1e"/><polygon points="20,9 20,25 9,25" fill="${sailColor}" opacity="0.9" stroke="${sailColor}" stroke-width="0.5"/><polygon points="21,12 21,25 30,25" fill="${sailColor}" opacity="0.7" stroke="${sailColor}" stroke-width="0.5"/></svg>`;
+      cell.style.cursor = 'default';
+      // Add name label under ship
+      const label = document.createElement('div');
+      label.style.cssText = `position:absolute;bottom:1px;left:0;right:0;text-align:center;font-family:'Press Start 2P',monospace;font-size:0.32em;color:${sailColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;`;
+      label.textContent = players[idx];
+      cell.style.position = 'relative';
+      cell.appendChild(label);
+    });
+    shipsState.phase = 'firing';
+    startCannonFiring();
+    return;
+  }
+
+  document.getElementById('shipsStatus').textContent = `${players[0]} - place your ship!`;
   showGameIntro('ships', () => {
     playGameMusic('ships');
   });
@@ -4795,17 +4850,21 @@ function initBalloon() {
   }
   svg.innerHTML = svgContent;
 
-  // Schedule ALL n bursts within 10 seconds
+  // Schedule ALL n bursts — much faster in creator mode
   const burstTimes = [];
   for (let i = 0; i < n; i++) {
-    burstTimes.push(2000 + Math.random() * 13000);
+    burstTimes.push(creatorMode
+      ? 500 + Math.random() * 4000   // burst within 0.5–4.5s in creator
+      : 2000 + Math.random() * 13000
+    );
   }
   burstTimes.sort((a, b) => a - b);
 
   balloonState = {
     balloons, phase: 'inflating', raf: null, startTime: null,
     burstTimes, nextBurstIdx: 0, groundY: stringEndY,
-    baseInflateRate: 0.04, maxRx: 45, maxRy: 55,
+    baseInflateRate: creatorMode ? 0.18 : 0.04,  // 4.5× faster inflate
+    maxRx: 45, maxRy: 55,
     flashText: null, flashStart: 0, flashColor: '#fff', flashName: ''
   };
   document.getElementById('balloonStatus').textContent = '';
@@ -5059,11 +5118,16 @@ function initGolf() {
   }
 
   golfState = {
-    phase: 'parade', balls, holeX, holeY, holeR, ballR,
+    phase: creatorMode ? 'swing' : 'parade', balls, holeX, holeY, holeR, ballR,
     paradeStart: performance.now(),
-    swingStart: 0, raf: null, winner: -1, doneTime: 0,
+    swingStart: creatorMode ? performance.now() : 0,
+    raf: null, winner: -1, doneTime: 0,
     lakes
   };
+  // In creator mode position balls at the tee immediately
+  if (creatorMode) {
+    balls.forEach(b => { b.x = W / 2 + (balls.indexOf(b) - balls.length / 2) * 18; b.y = H - 30; });
+  }
 
   const ad = document.getElementById('golfAssignments');
   ad.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:6px 4px">` +
@@ -5305,7 +5369,7 @@ function initGolf() {
         g.balls.forEach(b => {
           const angleToHole = Math.atan2(g.holeY - H, g.holeX - W / 2);
           const spread = (Math.random() - 0.5) * 1.4;
-          const speed = 10 + Math.random() * 8;
+          const speed = creatorMode ? (28 + Math.random() * 10) : (10 + Math.random() * 8);
           b.vx = Math.cos(angleToHole + spread) * speed;
           b.vy = Math.sin(angleToHole + spread) * speed;
           b.x = W / 2 + (Math.random() - 0.5) * 30;
@@ -5316,7 +5380,7 @@ function initGolf() {
 
     // Physics
     if (g.phase === 'flying') {
-      const friction = 0.993;
+      const friction = creatorMode ? 0.975 : 0.993; // stops faster in creator mode
       let allStopped = true;
 
       g.balls.forEach(b => {
@@ -9139,6 +9203,37 @@ function showCreatorSetup() {
   // Pre-load the Press Start 2P font so it doesn't FOUT during recording
   document.fonts && document.fonts.load('1em "Press Start 2P"');
 
+  // Build game selector buttons
+  const gameRow = document.getElementById('crGameRow');
+  if (gameRow) {
+    gameRow.innerHTML = '';
+    const creatorGameList = [
+      {id:'marble', label:'⚪ MARBLE'},
+      {id:'battle', label:'⚔️ BATTLE'},
+      {id:'horses', label:'🐴 HORSES'},
+      {id:'engulf', label:'🔵 ENGULF'},
+      {id:'snake',  label:'🐍 SNAKE'},
+      {id:'ships',   label:'⚓ CANNON'},
+      {id:'balloon', label:'🎈 BALLOON'},
+      {id:'golf',    label:'⛳ GOLF'},
+    ];
+    creatorGameList.forEach(g => {
+      const btn = document.createElement('button');
+      btn.className = 'cr-game-btn';
+      btn.textContent = g.label;
+      btn.dataset.gameId = g.id;
+      btn.onclick = () => {
+        gameRow.querySelectorAll('.cr-game-btn').forEach(b => b.classList.remove('selected'));
+        if (btn.classList.contains('selected')) {
+          btn.classList.remove('selected'); // toggle off = random
+        } else {
+          btn.classList.add('selected');
+        }
+      };
+      gameRow.appendChild(btn);
+    });
+  }
+
   // Build 2 empty option inputs
   crBuildOptInputs();
 
@@ -9449,8 +9544,10 @@ function showCreatorHook() {
 
 // ---- Game phase: let game play to natural completion ----
 function creatorStartGame() {
-  const creatorGames = ['marble', 'battle', 'horses', 'engulf', 'snake'];
-  const pick = creatorGames[Math.floor(Math.random() * creatorGames.length)];
+  const creatorGames = ['marble', 'battle', 'horses', 'engulf', 'snake', 'ships', 'balloon', 'golf'];
+  // Check if user selected a specific game
+  const selectedBtn = document.querySelector('#crGameRow .cr-game-btn.selected');
+  const pick = selectedBtn ? selectedBtn.dataset.gameId : creatorGames[Math.floor(Math.random() * creatorGames.length)];
   enabledGames = [pick];
   initAudio();
   creatorRevealed = false;
@@ -9554,6 +9651,54 @@ function getCommentaryLine(gameType, tick) {
       creatorChosenWinner ? `🎯 ${creatorChosenWinner.toUpperCase()} LOOKING STRONG!` : `🏁 THE FINISH LINE IS CLOSE!`,
       `🖥️ THE ALGORITHM KNOWS WHICH HORSE WINS!`,
       `😤 THE CROWD IS ON THEIR FEET!`,
+    ];
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
+  if (gameType === 'balloon') {
+    const bs = balloonState;
+    if (!bs) return null;
+    const alive = bs.balloons ? bs.balloons.filter(b => b.alive) : [];
+    const biggest = alive.length ? [...alive].sort((a,b) => b.rx - a.rx)[0] : null;
+    const lines = [
+      biggest ? `🎈 ${biggest.name ? biggest.name.toUpperCase() : players[bs.balloons.indexOf(biggest)].toUpperCase()} IS INFLATING FAST!` : `🎈 BALLOONS EXPANDING RAPIDLY!`,
+      `💥 ONE OF THESE IS ABOUT TO BURST!`,
+      alive.length <= 2 ? `😱 FINAL TWO BALLOONS REMAINING!` : `🔥 ${alive.length} BALLOONS STILL INFLATING!`,
+      creatorChosenWinner ? `⚡ WILL ${creatorChosenWinner.toUpperCase()}'S BALLOON SURVIVE?!` : `👀 WHICH ONE POPS LAST?!`,
+      `🖥️ THE ALGORITHM IS PUMPING THE AIR!`,
+      `😬 THE TENSION IS UNBEARABLE!`,
+    ].filter(Boolean);
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
+  if (gameType === 'golf') {
+    const gs = golfState;
+    if (!gs) return null;
+    const alive = gs.balls ? gs.balls.filter(b => !b.eliminated) : [];
+    const stopped = gs.balls ? gs.balls.filter(b => b.stopped && !b.eliminated) : [];
+    const lines = [
+      `⛳ BALLS FLYING TOWARD THE HOLE!`,
+      alive.length < gs.balls.length ? `💦 ${gs.balls.filter(b=>b.eliminated).length} BALL${gs.balls.filter(b=>b.eliminated).length>1?'S':''} IN THE LAKE!` : `🎯 EVERY BALL STILL IN PLAY!`,
+      stopped.length > 0 ? `🏌️ ${stopped.length} BALL${stopped.length>1?'S':''} STOPPED — HOW CLOSE?!` : `🔥 BALLS STILL ROLLING!`,
+      creatorChosenWinner ? `🏆 IS ${creatorChosenWinner.toUpperCase()} CLOSEST TO THE PIN?!` : `👀 WHO LANDS NEAREST THE HOLE?!`,
+      `🖥️ THE ALGORITHM CALCULATED THIS SHOT!`,
+      `😤 PHYSICS DOESN'T LIE!`,
+    ].filter(Boolean);
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
+  if (gameType === 'ships') {
+    const ss = shipsState;
+    if (!ss) return null;
+    const aliveCount = ss.alive ? ss.alive.size : 0;
+    const aliveNames = ss.alive ? [...ss.alive].map(i => players[i].toUpperCase()) : [];
+    const lines = [
+      `💣 CANNONBALLS INCOMING!`,
+      aliveCount <= 2 ? `⚓ FINAL SHIPS: ${aliveNames.join(' VS ')}!` : `🔥 ${aliveCount} SHIPS STILL AFLOAT!`,
+      `🎯 NOWHERE TO HIDE ON THAT GRID!`,
+      creatorChosenWinner ? `⚡ CAN ${creatorChosenWinner.toUpperCase()} SURVIVE?!` : `💥 EVERY SHOT COUNTS!`,
+      `🖥️ THE CANNON HAS CALCULATED ITS TARGET!`,
+      `😱 ONE DIRECT HIT AND IT'S OVER!`,
     ];
     return lines[Math.floor(Math.random() * lines.length)];
   }
