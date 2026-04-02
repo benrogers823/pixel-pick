@@ -481,6 +481,8 @@ canvas { touch-action: none; }
 #namePickerStatus { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10; font-size: 1.5em; color: #c8b8e8; font-family: Georgia, serif; text-shadow: 0 2px 6px rgba(0,0,0,0.5); text-align: center; }
 /* Engulf - Void/Space theme */
 #engulfScreen { flex-direction: column; align-items: center; background: radial-gradient(ellipse at center, #0d0d2b 0%, #060614 50%, #020208 100%); position: relative; overflow: hidden; }
+#pickerScreen { background:#0a0812; position:relative; overflow:hidden; }
+#virusScreen { background:#020206; position:relative; overflow:hidden; }
 #snakeScreen { background:#030a03; position:relative; overflow:hidden; }
 #snakeCanvas { position:absolute; top:0; left:0; width:100%; height:100%; display:block; }
 #snakeHUD { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:10; font-family:'Press Start 2P',monospace; font-size:clamp(1em,3vw,1.6em); color:#0f0; text-shadow:0 0 15px rgba(0,255,0,0.8); pointer-events:none; letter-spacing:2px; }
@@ -928,6 +930,18 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
   <canvas id="horsesCanvas"></canvas>
 </div>
 
+<!-- Pixel Picker Screen -->
+<div id="pickerScreen" class="screen">
+  <button class="btn btn-secondary" style="position:absolute;top:10px;left:10px;z-index:20;" onclick="cleanupPicker(); resetGame(); showScreen('setupScreen')">Back</button>
+  <canvas id="pickerCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;display:block;"></canvas>
+</div>
+
+<!-- Pixel Virus Screen -->
+<div id="virusScreen" class="screen">
+  <button class="btn btn-secondary" style="position:absolute;top:10px;left:10px;z-index:20;" onclick="cleanupVirus(); resetGame(); showScreen('setupScreen')">Back</button>
+  <canvas id="virusCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;display:block;"></canvas>
+</div>
+
 <!-- Snake Royale Screen -->
 <div id="snakeScreen" class="screen">
   <button class="btn btn-secondary" style="position:absolute;top:10px;left:10px;z-index:20;" onclick="cleanupSnake(); resetGame(); showScreen('setupScreen')">Back</button>
@@ -1161,6 +1175,16 @@ const GAME_INTROS = {
     desc: 'Horses thunder down the track! Leap over hedges, sprint for the finish, and hold on tight for the home straight!',
     win: 'The first horse past the finish line wins!'
   },
+  virus: {
+    icon: '\u{1F9EC}', title: 'PIXEL VIRUS',
+    desc: 'Each player is a virus starting from an equally-spaced position on the grid! Your infection spreads outward, consuming uninfected cells — and battling rival viruses for territory!',
+    win: 'When the grid is fully infected, the virus that dominates the most territory wins!'
+  },
+  picker: {
+    icon: '\u{1F3B0}', title: 'PIXEL PICKER',
+    desc: 'The signature game! Three slot machine reels spin with every player\'s name. One by one the reels lock in — will they all match?',
+    win: 'When all three reels stop on the same name, that player is the chosen one!'
+  },
   snake: {
     icon: '\u{1F40D}', title: 'SNAKE ROYALE',
     desc: 'Every player is a snake on the same grid! Eat food to grow longer — but don\'t crash into walls, yourself, or other snakes!',
@@ -1215,6 +1239,8 @@ let musicPlaying = null;
 let musicMuted = false;
 let musicVolume = 0.35;
 let musicNodes = [];
+let isMusicPlaying = false;
+let currentMusic = null;
 
 function initAudio() {
   if (audioCtx) return;
@@ -1228,6 +1254,8 @@ function stopMusic() {
   musicNodes.forEach(n => { try { n.stop(); } catch(e) {} try { n.disconnect(); } catch(e) {} });
   musicNodes = [];
   musicPlaying = null;
+  isMusicPlaying = false;
+  currentMusic = null;
 }
 
 function setMusicVolume(v) {
@@ -1704,6 +1732,8 @@ function playGameMusic(game) {
   else if (game === 'wheel') playWheelMusic();
   else if (game === 'namepicker') playNamePickerMusic();
   else if (game === 'horses') playHorsesMusic();
+  else if (game === 'virus') playVirusMusic();
+  else if (game === 'picker') playPickerMusic();
 }
 
 // ============ SOUND EFFECTS ============
@@ -2205,9 +2235,11 @@ document.addEventListener('click', (e) => {
 });
 
 const GAMES = [
+  {id:'virus',      name:'Pixel Virus',   icon:'\u{1F9EC}'},
+  {id:'engulf',     name:'Engulf',        icon:'\u2B24'},
+  {id:'picker',     name:'Pixel Picker',  icon:'\u{1F3B0}'},
   {id:'marble',     name:'Marble Race',   icon:'\u26AA'},
   {id:'snake',      name:'Snake Royale',  icon:'\u{1F40D}'},
-  {id:'engulf',     name:'Engulf',        icon:'\u2B24'},
   {id:'battle',     name:'Battle',        icon:'\u2694'},
   {id:'horses',     name:'Horse Race',    icon:'\u{1F3C7}'},
   {id:'ships',      name:'Cannon',        icon:'\u2693'},
@@ -2274,7 +2306,7 @@ function goToGameSelect() {
   beltGames = getAvailableGames();
   if (beltGames.length === 0) beltGames = [...GAMES];
   // Start with marble centred (random is one slot to its left)
-  beltCurrentIdx = beltGames.findIndex(g => g.id === 'marble');
+  beltCurrentIdx = beltGames.findIndex(g => g.id === 'virus');
   if (beltCurrentIdx < 0) beltCurrentIdx = 0;
   clawAnimating = false;
   beltAnimating = false;
@@ -2332,6 +2364,76 @@ function getWrappedGame(offset) {
 
 // Game artwork definitions for CD case covers
 const GAME_ART = {
+  virus: (ctx, w, h) => {
+    // Dark background
+    ctx.fillStyle = '#020206'; ctx.fillRect(0,0,w,h);
+    // Grid lines
+    const CELL = 12;
+    ctx.strokeStyle = '#0d0d20'; ctx.lineWidth = 0.5;
+    for (let x = 0; x < w; x += CELL) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for (let y = 0; y < h; y += CELL) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+    // Virus blobs in player colors
+    const virusColors = ['#e94560','#f5a623','#3498db','#2ecc71','#9b59b6','#1abc9c'];
+    const centers = [{x:w*0.22,y:h*0.35},{x:w*0.75,y:h*0.28},{x:w*0.18,y:h*0.72},{x:w*0.78,y:h*0.7},{x:w*0.5,y:h*0.2},{x:w*0.5,y:h*0.78}];
+    centers.forEach((c, ci) => {
+      const color = virusColors[ci % virusColors.length];
+      const r = 18 + ci * 4;
+      // Draw a blob of cells
+      for (let dx = -r; dx <= r; dx += CELL) {
+        for (let dy = -r; dy <= r; dy += CELL) {
+          if (dx*dx + dy*dy <= r*r * 1.2) {
+            const cx = Math.floor((c.x + dx) / CELL) * CELL + 1;
+            const cy2 = Math.floor((c.y + dy) / CELL) * CELL + 1;
+            if (cx >= 0 && cy2 >= 0 && cx < w && cy2 < h) {
+              ctx.fillStyle = color;
+              ctx.fillRect(cx, cy2, CELL-1, CELL-1);
+            }
+          }
+        }
+      }
+    });
+    // Title
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, h*0.42, w, h*0.2);
+    ctx.fillStyle = '#00ffaa'; ctx.font = `bold ${w*0.08}px monospace`;
+    ctx.textAlign = 'center'; ctx.shadowColor = '#00ffaa'; ctx.shadowBlur = 12;
+    ctx.fillText('PIXEL', w/2, h*0.52); ctx.fillText('VIRUS', w/2, h*0.59);
+    ctx.shadowBlur = 0; ctx.textAlign = 'left';
+  },
+  picker: (ctx, w, h) => {
+    ctx.fillStyle = '#0a0812'; ctx.fillRect(0,0,w,h);
+    // Machine body
+    ctx.fillStyle = '#1a1528'; ctx.strokeStyle = '#3a2a5a'; ctx.lineWidth = 3;
+    ctx.fillRect(w*0.12, h*0.15, w*0.76, h*0.7);
+    ctx.strokeRect(w*0.12, h*0.15, w*0.76, h*0.7);
+    // Three reel windows
+    const colors = ['#e94560','#3498db','#2ecc71'];
+    for (let i = 0; i < 3; i++) {
+      const rx = w*0.18 + i * w*0.22;
+      ctx.fillStyle = '#050508';
+      ctx.fillRect(rx, h*0.3, w*0.18, h*0.4);
+      // Name blocks
+      for (let j = 0; j < 3; j++) {
+        ctx.fillStyle = colors[(i+j)%3];
+        ctx.fillRect(rx+3, h*0.32 + j*h*0.12, w*0.18-6, h*0.1);
+      }
+      // Center highlight
+      ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 2;
+      ctx.strokeRect(rx, h*0.42, w*0.18, h*0.14);
+    }
+    // Border lights
+    for (let i = 0; i < 16; i++) {
+      const angle = (i/16) * Math.PI * 2;
+      const lx = w*0.5 + Math.cos(angle) * w*0.42;
+      const ly = h*0.5 + Math.sin(angle) * h*0.42;
+      ctx.fillStyle = i%2 ? '#ffcc00' : '#ff6600';
+      ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI*2); ctx.fill();
+    }
+    // Title
+    ctx.fillStyle = '#ffcc00'; ctx.font = `bold ${w*0.07}px monospace`;
+    ctx.textAlign = 'center'; ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 10;
+    ctx.fillText('PIXEL', w/2, h*0.24); ctx.fillText('PICKER', w/2, h*0.32);
+    ctx.shadowBlur = 0; ctx.textAlign = 'left';
+  },
   marble: (ctx, w, h) => {
     // Futuristic track
     ctx.fillStyle = '#050510'; ctx.fillRect(0,0,w,h);
@@ -3156,6 +3258,8 @@ function startGame(game) {
   else if (game === 'engulf') initEngulf();
   else if (game === 'horses') initHorses();
   else if (game === 'snake') initSnake();
+  else if (game === 'virus') initVirus();
+  else if (game === 'picker') initPicker();
 }
 
 // ============ WINNING MOMENT CAPTURE ============
@@ -4099,7 +4203,8 @@ function startMarbleRace() {
     const targetCamY = leadY - canvas.height * 0.4;
     // After winner detected, lock camera in place so the capture shows the finish area
     if (!marbleState.winnerSnapped) {
-      cameraY += (targetCamY - cameraY) * (1 - Math.pow(0.95, dt));
+      const camSmooth = creatorMode ? 0.985 : 0.95;
+      cameraY += (targetCamY - cameraY) * (1 - Math.pow(camSmooth, dt));
     }
 
     // === FUTURISTIC TRACK BACKGROUND ===
@@ -4196,7 +4301,7 @@ function startMarbleRace() {
     }
 
     // Finish line after 20s
-    if (elapsed >= 20 && finishLineY === null) {
+    if (elapsed >= (creatorMode ? 10 : 20) && finishLineY === null) {
       finishLineY = leadY - canvas.height * 0.5;
       finishSpawnTime = performance.now();
     }
@@ -4829,10 +4934,20 @@ function initBalloon() {
   svgContent += '<g opacity="0.4"><ellipse cx="480" cy="110" rx="28" ry="11" fill="#fff"/><ellipse cx="500" cy="106" rx="20" ry="9" fill="#fff"/></g>';
 
   // Balloons — ensure at least one has high growth rate to reach MASSIVE
+  const chosenBalloonIdx = (creatorMode && creatorChosenWinner)
+    ? players.indexOf(creatorChosenWinner) : -1;
   const growthRates = [];
-  for (let i = 0; i < n; i++) growthRates.push(0.5 + Math.random() * 0.7);
-  // Guarantee one balloon grows fast enough to reach massive
-  growthRates[Math.floor(Math.random() * n)] = 1.3 + Math.random() * 0.3;
+  for (let i = 0; i < n; i++) {
+    if (i === chosenBalloonIdx) {
+      growthRates.push(1.35 + Math.random() * 0.2); // winner grows steadily faster
+    } else {
+      growthRates.push(0.3 + Math.random() * 0.45); // others grow noticeably slower
+    }
+  }
+  // In normal mode, guarantee one balloon grows fast enough to reach massive
+  if (chosenBalloonIdx === -1) {
+    growthRates[Math.floor(Math.random() * n)] = 1.3 + Math.random() * 0.3;
+  }
 
   const balloons = [];
   for (let i = 0; i < n; i++) {
@@ -4863,7 +4978,8 @@ function initBalloon() {
   balloonState = {
     balloons, phase: 'inflating', raf: null, startTime: null,
     burstTimes, nextBurstIdx: 0, groundY: stringEndY,
-    baseInflateRate: creatorMode ? 0.18 : 0.04,  // 4.5× faster inflate
+    baseInflateRate: creatorMode ? 0.11 : 0.04,
+    chosenBalloonIdx,
     maxRx: 45, maxRy: 55,
     flashText: null, flashStart: 0, flashColor: '#fff', flashName: ''
   };
@@ -4935,9 +5051,15 @@ function balloonGameLoop(t) {
   const initCy = 200;
 
   // Auto-inflate all alive balloons at different rates
+  const chosenBalloon = s.chosenBalloonIdx >= 0 ? s.balloons[s.chosenBalloonIdx] : null;
   alive.forEach(b => {
     if (b.rx < s.maxRx) {
-      const rate = s.baseInflateRate * b.growthRate;
+      let rate = s.baseInflateRate * b.growthRate;
+      // In creator mode, cap non-winner balloons just below the chosen winner's size
+      if (chosenBalloon && b.idx !== s.chosenBalloonIdx && chosenBalloon.alive) {
+        const cap = Math.max(8, chosenBalloon.rx - 3);
+        if (b.rx >= cap) rate = 0;
+      }
       b.rx += rate;
       b.ry += rate * 1.2;
       b.cy = initCy - (b.ry - 10) * 0.5;
@@ -4969,7 +5091,11 @@ function balloonGameLoop(t) {
   // Burst at pre-scheduled times — all balloons pop
   if (s.nextBurstIdx < s.burstTimes.length && elapsed >= s.burstTimes[s.nextBurstIdx]) {
     if (alive.length > 0) {
-      const victim = alive[Math.floor(Math.random() * alive.length)];
+      // In creator mode, never pick the chosen winner unless they're the only one left
+      const burstPool = (creatorMode && s.chosenBalloonIdx >= 0 && alive.length > 1)
+        ? alive.filter(b => b.idx !== s.chosenBalloonIdx)
+        : alive;
+      const victim = burstPool[Math.floor(Math.random() * burstPool.length)];
       burstBalloon(victim, s);
       s.nextBurstIdx++;
       const remaining = s.balloons.filter(b => b.alive);
@@ -5366,9 +5492,15 @@ function initGolf() {
         ctx.lineCap = 'butt';
       } else {
         g.phase = 'flying';
-        g.balls.forEach(b => {
+        const chosenGolfIdx = (creatorMode && creatorChosenWinner)
+          ? players.indexOf(creatorChosenWinner) : -1;
+        g.balls.forEach((b, bi) => {
           const angleToHole = Math.atan2(g.holeY - H, g.holeX - W / 2);
-          const spread = (Math.random() - 0.5) * 1.4;
+          // Chosen winner gets a tight spread so they land closest to the hole
+          const isChosen = bi === chosenGolfIdx;
+          const spread = isChosen
+            ? (Math.random() - 0.5) * 0.08
+            : (Math.random() - 0.5) * 1.4;
           const speed = creatorMode ? (28 + Math.random() * 10) : (10 + Math.random() * 8);
           b.vx = Math.cos(angleToHole + spread) * speed;
           b.vy = Math.sin(angleToHole + spread) * speed;
@@ -9208,6 +9340,8 @@ function showCreatorSetup() {
   if (gameRow) {
     gameRow.innerHTML = '';
     const creatorGameList = [
+      {id:'virus',   label:'🧬 VIRUS'},
+      {id:'picker',  label:'🎰 PICKER'},
       {id:'marble', label:'⚪ MARBLE'},
       {id:'battle', label:'⚔️ BATTLE'},
       {id:'horses', label:'🐴 HORSES'},
@@ -9725,6 +9859,42 @@ function getCommentaryLine(gameType, tick) {
     return lines[Math.floor(Math.random() * lines.length)];
   }
 
+  if (gameType === 'picker') {
+    const ps = pickerState;
+    if (!ps) return null;
+    const stoppedCount = ps.reels.filter(r => r.stopped).length;
+    const lines = [
+      stoppedCount === 0 ? '🎰 THE REELS ARE SPINNING!' : null,
+      stoppedCount === 1 ? '⚡ FIRST REEL LOCKED IN!' : null,
+      stoppedCount === 2 ? '😱 ONE REEL LEFT — WHO WILL IT BE?!' : null,
+      '🖥️ THE MACHINE KNOWS THE ANSWER!',
+      '🔥 PIXEL PICKER NEVER LIES!',
+      '👀 WATCH THE REELS CLOSELY...',
+      creatorChosenWinner ? `⚡ THE ALGORITHM HAS ALREADY DECIDED!` : `🎯 FATE IS SPINNING!`,
+    ].filter(Boolean);
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
+  if (gameType === 'virus') {
+    const vs = virusState;
+    if (!vs || !vs.counts) return null;
+    const sorted = vs.counts.map((c, i) => ({i, c, name: vs.names[i]})).sort((a,b) => b.c - a.c);
+    const leader = sorted[0];
+    const loser = sorted[sorted.length - 1];
+    const pct = ((leader.c / vs.totalCells) * 100).toFixed(0);
+    const lines = [
+      `🧬 ${leader.name.toUpperCase()} IS SPREADING FAST — ${pct}% INFECTED!`,
+      `🔴 ${loser.name.toUpperCase()} IS LOSING TERRITORY — FIGHT BACK!`,
+      sorted.length >= 2 ? `⚡ ${sorted[0].name.toUpperCase()} VS ${sorted[1].name.toUpperCase()} — BORDER WAR!` : `🌐 TOTAL DOMINATION IN PROGRESS!`,
+      `🖥️ THE ALGORITHM IS WATCHING THE BORDERS!`,
+      `💥 CELLS ARE FLIPPING — CHAOS AT THE FRONTLINES!`,
+      creatorChosenWinner ? `👑 ${creatorChosenWinner.toUpperCase()} IS MUTATING STRONGER!` : `🔥 WHO CAN COVER THE MOST GROUND?!`,
+      `🧫 THE PETRI DISH IS FILLING UP!`,
+      `😱 ONE PUSH AND THE MAP COULD FLIP!`,
+    ].filter(Boolean);
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
   if (gameType === 'engulf') {
     const es = engulfState;
     if (!es || !es.octagons) return null;
@@ -9845,6 +10015,934 @@ showWinner = function(name) {
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(initCreatorMode, 100);
 });
+
+// ============ PIXEL VIRUS ============
+let virusState = null;
+
+function playVirusMusic() {
+  if (!audioCtx) return;
+  stopMusic();
+  currentMusic = 'virus';
+  isMusicPlaying = true;
+  const now = audioCtx.currentTime;
+
+  function scheduleVirusBar(startTime) {
+    if (!isMusicPlaying || currentMusic !== 'virus') return;
+    const bpm = 132;
+    const beat = 60 / bpm;
+    const bar = beat * 8; // 2 bars
+
+    // Pulsing sub-bass kick every beat
+    for (let b = 0; b < 8; b++) {
+      const bt = startTime + b * beat;
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.connect(g); g.connect(musicGain);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(90, bt);
+      osc.frequency.exponentialRampToValueAtTime(35, bt + 0.18);
+      g.gain.setValueAtTime(0.5, bt);
+      g.gain.exponentialRampToValueAtTime(0.001, bt + 0.22);
+      osc.start(bt); osc.stop(bt + 0.25);
+    }
+
+    // Tense sawtooth arpeggio (minor key: A minor-ish)
+    const arpNotes = [220, 261.6, 329.6, 392, 329.6, 261.6, 220, 174.6];
+    arpNotes.forEach((freq, i) => {
+      const nt = startTime + i * (bar / arpNotes.length);
+      const osc = audioCtx.createOscillator();
+      const filt = audioCtx.createBiquadFilter();
+      const g = audioCtx.createGain();
+      osc.connect(filt); filt.connect(g); g.connect(musicGain);
+      osc.type = 'sawtooth';
+      filt.type = 'lowpass';
+      filt.frequency.setValueAtTime(1200, nt);
+      filt.frequency.exponentialRampToValueAtTime(400, nt + 0.08);
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, nt);
+      g.gain.linearRampToValueAtTime(0.12, nt + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.001, nt + bar / arpNotes.length * 0.75);
+      osc.start(nt); osc.stop(nt + 0.25);
+    });
+
+    // Glitchy noise hi-hats on off-beats
+    for (let i = 0; i < 16; i++) {
+      if (i % 2 === 0) continue;
+      const ht = startTime + i * (beat / 2);
+      const bufLen = Math.floor(audioCtx.sampleRate * 0.04);
+      const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < bufLen; j++) d[j] = (Math.random() * 2 - 1);
+      const src = audioCtx.createBufferSource();
+      const filt = audioCtx.createBiquadFilter();
+      const g = audioCtx.createGain();
+      src.buffer = buf;
+      src.connect(filt); filt.connect(g); g.connect(musicGain);
+      filt.type = 'highpass'; filt.frequency.value = 7000;
+      g.gain.setValueAtTime(0.07, ht);
+      g.gain.exponentialRampToValueAtTime(0.001, ht + 0.035);
+      src.start(ht); src.stop(ht + 0.05);
+    }
+
+    setTimeout(() => scheduleVirusBar(startTime + bar), (bar - 0.15) * 1000);
+  }
+
+  scheduleVirusBar(now + 0.05);
+}
+
+function getVirusStartPositions(n, cols, rows) {
+  // Use 15% margin from edges so no player is disadvantaged by being at a wall
+  const margin = 0.15;
+  const minCol = Math.floor(cols * margin);
+  const maxCol = cols - 1 - minCol;
+  const minRow = Math.floor(rows * margin);
+  const maxRow = rows - 1 - minRow;
+  const usableCols = maxCol - minCol;
+  const usableRows = maxRow - minRow;
+
+  const pCols = Math.ceil(Math.sqrt(n));
+  const pRows = Math.ceil(n / pCols);
+  const positions = [];
+
+  // Calculate zone size for jitter bounds
+  const zoneW = usableCols / pCols;
+  const zoneH = usableRows / pRows;
+
+  for (let pr = 0; pr < pRows; pr++) {
+    const rowStart = pr * pCols;
+    const rowEnd = Math.min(rowStart + pCols, n);
+    const rowCount = rowEnd - rowStart;
+    for (let pc = 0; pc < rowCount; pc++) {
+      const idx = rowStart + pc;
+      const offset = (pCols - rowCount) / 2;
+      const cellCol = minCol + Math.round((pc + offset + 0.5) / pCols * usableCols);
+      const cellRow = minRow + Math.round((pr + 0.5) / pRows * usableRows);
+      // Random jitter within ±30% of zone size
+      const jitterC = Math.round((Math.random() - 0.5) * zoneW * 0.5);
+      const jitterR = Math.round((Math.random() - 0.5) * zoneH * 0.5);
+      positions[idx] = {
+        col: Math.max(minCol, Math.min(maxCol, cellCol + jitterC)),
+        row: Math.max(minRow, Math.min(maxRow, cellRow + jitterR))
+      };
+    }
+  }
+
+  // Shuffle so player assignment to zones is random each game
+  for (let i = positions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [positions[i], positions[j]] = [positions[j], positions[i]];
+  }
+
+  return positions;
+}
+
+function virusNeighbors4(ci, cols, rows) {
+  const col = ci % cols, row = Math.floor(ci / cols);
+  const result = [];
+  if (col > 0) result.push(ci - 1);
+  if (col < cols - 1) result.push(ci + 1);
+  if (row > 0) result.push(ci - cols);
+  if (row < rows - 1) result.push(ci + cols);
+  return result;
+}
+
+function initVirus() {
+  showScreen('virusScreen');
+  playGameMusic('virus');
+  currentGameCleanup = cleanupVirus;
+
+  const canvas = document.getElementById('virusCanvas');
+  const W = canvas.width = canvas.offsetWidth || window.innerWidth;
+  const H = canvas.height = canvas.offsetHeight || window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const GAP = 1;
+  const CELL = Math.max(6, Math.floor(Math.min(W / 100, H / 70)));
+  const cols = Math.floor(W / CELL);
+  const rows = Math.floor(H / CELL);
+  const totalCells = cols * rows;
+  const n = players.length;
+  const colors = players.map((_, i) => COLORS[i % COLORS.length]);
+  const names = [...players];
+  const grid = new Int16Array(totalCells).fill(-1);
+  const counts = new Array(n).fill(0);
+
+  const chosenIdx = (creatorMode && creatorChosenWinner) ? players.indexOf(creatorChosenWinner) : -1;
+
+  // Equal-distance starting positions
+  const startPos = getVirusStartPositions(n, cols, rows);
+  const frontier = [];
+
+  startPos.forEach((pos, i) => {
+    const ci = pos.row * cols + pos.col;
+    if (grid[ci] === -1) {
+      grid[ci] = i;
+      counts[i]++;
+    }
+    // Chosen winner gets one extra seed adjacent cell for subtle head start
+    if (i === chosenIdx) {
+      const extra = virusNeighbors4(ci, cols, rows)[0];
+      if (extra !== undefined && grid[extra] === -1) {
+        grid[extra] = i;
+        counts[i]++;
+      }
+    }
+    // Seed frontier from this starting cell
+    virusNeighbors4(pos.row * cols + pos.col, cols, rows).forEach(ni => {
+      if (grid[ni] === -1) frontier.push(ni * 32 + i); // pack cellIdx and playerIdx
+    });
+  });
+
+  const infectedCount = counts.reduce((a, b) => a + b, 0);
+  const spreadPerFrame = Math.max(1, Math.ceil(totalCells / (15 * 60)));
+
+  // Initial draw: dark grid background
+  ctx.fillStyle = '#020206';
+  ctx.fillRect(0, 0, W, H);
+  // Draw all cells as uninfected
+  ctx.fillStyle = '#0d0d18';
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      ctx.fillRect(c * CELL + GAP, r * CELL + GAP, CELL - GAP, CELL - GAP);
+    }
+  }
+  // Draw starting cells
+  startPos.forEach((pos, i) => {
+    ctx.fillStyle = colors[i];
+    ctx.fillRect(pos.col * CELL + GAP, pos.row * CELL + GAP, CELL - GAP, CELL - GAP);
+  });
+
+  virusState = {
+    canvas, ctx, grid, cols, rows, CELL, GAP, W, H,
+    n, counts, colors, names, frontier,
+    totalCells, infectedCount,
+    spreadPerFrame, chosenIdx,
+    phase: 'spreading',
+    winner: null, winnerSnapped: false,
+    startTime: null,
+    flashCells: new Map(), // ci -> timestamp
+    raf: null,
+  };
+
+  showGameIntro('virus', () => {
+    if (!virusState) return;
+    virusState.raf = requestAnimationFrame(virusLoop);
+  });
+}
+
+function virusLoop(t) {
+  if (!virusState) return;
+  const s = virusState;
+  const ctx = s.ctx;
+
+  if (!s.startTime) s.startTime = t;
+  const elapsed = (t - s.startTime) / 1000;
+
+  if (s.phase === 'spreading') {
+    // --- Spread this frame ---
+    let infections = 0;
+    let attempts = 0;
+    const maxAttempts = s.spreadPerFrame * 25;
+
+    while (infections < s.spreadPerFrame && s.frontier.length > 0 && attempts < maxAttempts && s.infectedCount < s.totalCells) {
+      attempts++;
+      const ri = Math.floor(Math.random() * s.frontier.length);
+      const packed = s.frontier[ri];
+      // Swap-remove
+      s.frontier[ri] = s.frontier[s.frontier.length - 1];
+      s.frontier.pop();
+
+      const ci = packed >> 5;      // cell index (upper bits)
+      const pi = packed & 0x1F;    // player index (lower 5 bits, supports up to 31 players)
+
+      if (s.grid[ci] === -1) {
+        // Claim uninfected cell
+        s.grid[ci] = pi;
+        s.counts[pi]++;
+        s.infectedCount++;
+        infections++;
+        s.flashCells.set(ci, t);
+
+        // Draw newly infected cell bright (flash white)
+        const col = ci % s.cols, row = Math.floor(ci / s.cols);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(col * s.CELL + s.GAP, row * s.CELL + s.GAP, s.CELL - s.GAP, s.CELL - s.GAP);
+
+        // Add uninfected neighbors to frontier
+        virusNeighbors4(ci, s.cols, s.rows).forEach(ni => {
+          if (s.grid[ni] === -1) s.frontier.push(ni * 32 + pi);
+        });
+      } else if (s.grid[ci] !== pi) {
+        // Battle zone: small chance to flip enemy cell (immune if owned by chosen winner)
+        if (Math.random() < 0.07 && (s.chosenIdx < 0 || s.grid[ci] !== s.chosenIdx)) {
+          const prev = s.grid[ci];
+          s.grid[ci] = pi;
+          s.counts[pi]++;
+          s.counts[prev] = Math.max(0, s.counts[prev] - 1);
+          s.flashCells.set(ci, t);
+          const col = ci % s.cols, row = Math.floor(ci / s.cols);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(col * s.CELL + s.GAP, row * s.CELL + s.GAP, s.CELL - s.GAP, s.CELL - s.GAP);
+        }
+      }
+    }
+
+    // Fade flash cells to their final color
+    const toDelete = [];
+    s.flashCells.forEach((flashT, ci) => {
+      const age = t - flashT;
+      if (age > 220) {
+        // Settled — draw in player color
+        const owner = s.grid[ci];
+        if (owner >= 0) {
+          const col = ci % s.cols, row = Math.floor(ci / s.cols);
+          ctx.fillStyle = s.colors[owner];
+          ctx.fillRect(col * s.CELL + s.GAP, row * s.CELL + s.GAP, s.CELL - s.GAP, s.CELL - s.GAP);
+        }
+        toDelete.push(ci);
+      }
+    });
+    toDelete.forEach(ci => s.flashCells.delete(ci));
+
+    // Check win
+    if (s.infectedCount >= s.totalCells || (s.frontier.length === 0 && s.infectedCount >= s.totalCells * 0.96)) {
+      // Fill any remaining uninfected cells by flood-fill from neighbors
+      let maxC = 0, winIdx = 0;
+      s.counts.forEach((c, i) => { if (c > maxC) { maxC = c; winIdx = i; } });
+      s.winner = s.names[winIdx];
+      s.phase = 'done';
+    }
+  }
+
+  // --- HUD overlay (redrawn each frame over canvas) ---
+  drawVirusHUD(ctx, s, t, elapsed);
+
+  // --- Winner ---
+  if (s.phase === 'done' && !s.winnerSnapped) {
+    s.winnerSnapped = true;
+    stopMusic(); // Stop music immediately when game ends
+    // Settle all remaining flash cells
+    s.flashCells.forEach((flashT, ci) => {
+      const owner = s.grid[ci];
+      if (owner >= 0) {
+        const col = ci % s.cols, row = Math.floor(ci / s.cols);
+        ctx.fillStyle = s.colors[owner];
+        ctx.fillRect(col * s.CELL + s.GAP, row * s.CELL + s.GAP, s.CELL - s.GAP, s.CELL - s.GAP);
+      }
+    });
+    s.flashCells.clear();
+    drawVirusHUD(ctx, s, t, elapsed); // redraw HUD with winner overlay
+    setTimeout(() => {
+      if (!virusState) return;
+      captureCanvasMoment('virusCanvas', s.winner);
+      setTimeout(() => {
+        if (!virusState) return;
+        const w = virusState.winner;
+        virusState = null;
+        resetGame();
+        showWinner(w);
+      }, 1800);
+    }, 600);
+  }
+
+  if (s.phase !== 'done') {
+    s.raf = requestAnimationFrame(virusLoop);
+  }
+}
+
+function drawVirusHUD(ctx, s, t, elapsed) {
+  const { W, H, n, counts, colors, names, totalCells, phase } = s;
+  const hudH = Math.max(40, Math.min(54, H * 0.07));
+
+  // HUD background
+  ctx.fillStyle = 'rgba(2,2,6,0.82)';
+  ctx.fillRect(0, 0, W, hudH);
+
+  // Territory bar (full-width, proportional)
+  const barY = 6, barH = 12;
+  let barX = 4;
+  const totalBarW = W - 8;
+  const totalInfected = counts.reduce((a, b) => a + b, 0);
+  counts.forEach((c, i) => {
+    if (c <= 0) return;
+    const w = Math.max(1, (c / Math.max(totalCells, totalInfected)) * totalBarW);
+    ctx.fillStyle = colors[i];
+    ctx.fillRect(barX, barY, w, barH);
+    barX += w;
+  });
+  // Uninfected remainder (grey)
+  if (barX < W - 4) {
+    ctx.fillStyle = '#1a1a28';
+    ctx.fillRect(barX, barY, W - 4 - barX, barH);
+  }
+
+  // Player labels (small, horizontal)
+  const labelY = hudH * 0.78;
+  const maxLabelW = W / n;
+  const fontSize = Math.max(7, Math.min(13, maxLabelW * 0.18));
+  ctx.font = `bold ${fontSize}px monospace`;
+  ctx.textBaseline = 'middle';
+
+  counts.forEach((c, i) => {
+    const pct = ((c / totalCells) * 100).toFixed(0);
+    const lx = (i + 0.5) * (W / n);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = colors[i];
+    ctx.shadowColor = 'rgba(0,0,0,0.95)';
+    ctx.shadowBlur = 5;
+    const label = `${names[i].length > 7 ? names[i].substring(0,6) + '.' : names[i]} ${pct}%`;
+    ctx.fillText(label, lx, labelY);
+  });
+  ctx.shadowBlur = 0;
+  ctx.textAlign = 'left';
+
+  // Timer top-right
+  if (phase === 'spreading' && elapsed !== undefined) {
+    const remaining = Math.max(0, 15 - elapsed);
+    ctx.fillStyle = remaining < 4 ? '#ff4444' : '#00ffcc';
+    ctx.shadowColor = remaining < 4 ? 'rgba(255,68,68,0.8)' : 'rgba(0,255,200,0.7)';
+    ctx.shadowBlur = 10;
+    ctx.font = `bold ${Math.min(20, hudH * 0.42)}px monospace`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${remaining.toFixed(1)}s`, W - 8, hudH * 0.5);
+    ctx.shadowBlur = 0;
+    ctx.textAlign = 'left';
+  }
+
+  // Winner overlay
+  if (phase === 'done' && s.winner) {
+    const winIdx = names.indexOf(s.winner);
+    const winColor = winIdx >= 0 ? colors[winIdx] : '#ffffff';
+    const pct = winIdx >= 0 ? ((counts[winIdx] / totalCells) * 100).toFixed(1) : '?';
+
+    // Dark overlay band
+    const oy = H * 0.38;
+    ctx.fillStyle = 'rgba(0,0,0,0.78)';
+    ctx.fillRect(0, oy, W, H * 0.26);
+
+    // Winner text
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = winColor;
+    ctx.shadowBlur = 35;
+    ctx.fillStyle = winColor;
+    ctx.font = `bold ${Math.min(44, W * 0.055)}px monospace`;
+    ctx.fillText(`\u{1F9EC} ${s.winner.toUpperCase()} WINS!`, W / 2, oy + H * 0.1);
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#cccccc';
+    ctx.font = `${Math.min(18, W * 0.022)}px monospace`;
+    ctx.fillText(`${pct}% TERRITORY DOMINATED`, W / 2, oy + H * 0.185);
+    ctx.textAlign = 'left';
+  }
+}
+
+function cleanupVirus() {
+  if (virusState && virusState.raf) cancelAnimationFrame(virusState.raf);
+  virusState = null;
+  stopMusic();
+}
+
+// ============ PIXEL PICKER ============
+let pickerState = null;
+
+function playPickerMusic() {
+  if (!audioCtx) return;
+  stopMusic();
+  currentMusic = 'picker';
+  isMusicPlaying = true;
+  const now = audioCtx.currentTime;
+
+  function schedulePickerBar(startTime) {
+    if (!isMusicPlaying || currentMusic !== 'picker') return;
+    const bpm = 140;
+    const beat = 60 / bpm;
+    const bar = beat * 4;
+
+    // Tension bass drum: heartbeat pattern
+    [0, 0.5, 2, 2.5].forEach(b => {
+      const bt = startTime + b * beat;
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.connect(g); g.connect(musicGain);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(80, bt);
+      osc.frequency.exponentialRampToValueAtTime(30, bt + 0.2);
+      g.gain.setValueAtTime(0.45, bt);
+      g.gain.exponentialRampToValueAtTime(0.001, bt + 0.25);
+      osc.start(bt); osc.stop(bt + 0.3);
+    });
+
+    // Suspenseful rising pad
+    const pad = audioCtx.createOscillator();
+    const padG = audioCtx.createGain();
+    const padF = audioCtx.createBiquadFilter();
+    pad.connect(padF); padF.connect(padG); padG.connect(musicGain);
+    pad.type = 'sawtooth';
+    padF.type = 'lowpass'; padF.frequency.value = 600;
+    pad.frequency.setValueAtTime(110, startTime);
+    pad.frequency.linearRampToValueAtTime(130, startTime + bar);
+    padG.gain.setValueAtTime(0.08, startTime);
+    padG.gain.linearRampToValueAtTime(0.12, startTime + bar * 0.9);
+    padG.gain.exponentialRampToValueAtTime(0.001, startTime + bar);
+    pad.start(startTime); pad.stop(startTime + bar + 0.1);
+
+    // Rapid tick-tick-tick (slot machine clicks, getting faster)
+    for (let i = 0; i < 16; i++) {
+      const tt = startTime + i * (beat / 4);
+      const bufLen = Math.floor(audioCtx.sampleRate * 0.015);
+      const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < bufLen; j++) d[j] = (Math.random() * 2 - 1) * 0.5;
+      const src = audioCtx.createBufferSource();
+      const filt = audioCtx.createBiquadFilter();
+      const g = audioCtx.createGain();
+      src.buffer = buf;
+      src.connect(filt); filt.connect(g); g.connect(musicGain);
+      filt.type = 'bandpass'; filt.frequency.value = 3000 + i * 200;
+      g.gain.setValueAtTime(0.04 + i * 0.005, tt);
+      g.gain.exponentialRampToValueAtTime(0.001, tt + 0.02);
+      src.start(tt); src.stop(tt + 0.03);
+    }
+
+    // Staccato melody notes (gameshow anticipation)
+    const melody = [330, 0, 392, 0, 330, 392, 440, 0];
+    melody.forEach((freq, i) => {
+      if (freq === 0) return;
+      const nt = startTime + i * (beat / 2);
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.connect(g); g.connect(musicGain);
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, nt);
+      g.gain.linearRampToValueAtTime(0.1, nt + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, nt + beat * 0.4);
+      osc.start(nt); osc.stop(nt + beat * 0.5);
+    });
+
+    setTimeout(() => schedulePickerBar(startTime + bar), (bar - 0.15) * 1000);
+  }
+
+  schedulePickerBar(now + 0.05);
+}
+
+function sfxReelStop() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  // Heavy mechanical clunk
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.connect(g); g.connect(audioCtx.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(150, now);
+  osc.frequency.exponentialRampToValueAtTime(35, now + 0.15);
+  g.gain.setValueAtTime(0.5, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  osc.start(now); osc.stop(now + 0.25);
+  // Metallic click on top
+  const osc2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  osc2.connect(g2); g2.connect(audioCtx.destination);
+  osc2.type = 'square';
+  osc2.frequency.value = 900;
+  g2.gain.setValueAtTime(0.25, now);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+  osc2.start(now); osc2.stop(now + 0.07);
+}
+
+function sfxJackpot() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  // Rising fanfare: 4 ascending notes
+  [523, 659, 784, 1047].forEach((freq, i) => {
+    const t = now + i * 0.1;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.type = 'square';
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.3, t + 0.02);
+    g.gain.setValueAtTime(0.3, t + 0.08);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    osc.start(t); osc.stop(t + 0.4);
+  });
+  // Victory noise burst
+  const bufLen = Math.floor(audioCtx.sampleRate * 0.3);
+  const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let j = 0; j < bufLen; j++) d[j] = (Math.random() * 2 - 1);
+  const src = audioCtx.createBufferSource();
+  const filt = audioCtx.createBiquadFilter();
+  const g3 = audioCtx.createGain();
+  src.buffer = buf;
+  src.connect(filt); filt.connect(g3); g3.connect(audioCtx.destination);
+  filt.type = 'bandpass'; filt.frequency.value = 2000; filt.Q.value = 2;
+  g3.gain.setValueAtTime(0.08, now + 0.35);
+  g3.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+  src.start(now + 0.35); src.stop(now + 0.65);
+}
+
+function initPicker() {
+  showScreen('pickerScreen');
+  playGameMusic('picker');
+  currentGameCleanup = cleanupPicker;
+
+  const canvas = document.getElementById('pickerCanvas');
+  const W = canvas.width = canvas.offsetWidth || window.innerWidth;
+  const H = canvas.height = canvas.offsetHeight || window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const n = players.length;
+
+  // Pick winner
+  let winnerIdx;
+  if (creatorMode && creatorChosenWinner) {
+    winnerIdx = players.indexOf(creatorChosenWinner);
+    if (winnerIdx < 0) winnerIdx = Math.floor(Math.random() * n);
+  } else {
+    winnerIdx = Math.floor(Math.random() * n);
+  }
+
+  const blockH = Math.max(45, Math.min(75, H / 8));
+  const reelW = Math.min(W * 0.24, 200);
+  const reelH = blockH * 5;
+  const reelGap = Math.min(W * 0.035, 25);
+  const totalReelW = reelW * 3 + reelGap * 2;
+  const reelStartX = (W - totalReelW) / 2;
+  const reelStartY = (H - reelH) / 2 + 10;
+
+  // Each reel gets a different initial scroll offset and speed for variety
+  const reels = [
+    { scrollY: Math.random() * n * blockH, speed: 22 + Math.random() * 8, targetIdx: winnerIdx, stopped: false, stopping: false, stoppedAt: 0, bouncing: false, bounceStart: 0, stopTime: creatorMode ? 1200 : 1800 },
+    { scrollY: Math.random() * n * blockH, speed: 26 + Math.random() * 10, targetIdx: winnerIdx, stopped: false, stopping: false, stoppedAt: 0, bouncing: false, bounceStart: 0, stopTime: creatorMode ? 2800 : 3500 },
+    { scrollY: Math.random() * n * blockH, speed: 30 + Math.random() * 12, targetIdx: winnerIdx, stopped: false, stopping: false, stoppedAt: 0, bouncing: false, bounceStart: 0, stopTime: creatorMode ? 4200 : 5200 },
+  ];
+
+  pickerState = {
+    canvas, ctx, W, H, n, reels,
+    blockH, reelW, reelH, reelGap, reelStartX, reelStartY, totalReelW,
+    winnerIdx, winner: players[winnerIdx],
+    phase: 'spinning',
+    startTime: null,
+    winnerSnapped: false,
+    raf: null,
+    lightPhase: 0,
+    particles: [],
+  };
+
+  showGameIntro('picker', () => {
+    if (!pickerState) return;
+    pickerState.raf = requestAnimationFrame(pickerLoop);
+  });
+}
+
+function pickerLoop(t) {
+  if (!pickerState) return;
+  const s = pickerState;
+  if (!s.startTime) s.startTime = t;
+  const elapsed = t - s.startTime;
+  const ctx = s.ctx;
+
+  // Update reels
+  let allStopped = true;
+  s.reels.forEach((r, ri) => {
+    if (r.stopped) return;
+    allStopped = false;
+
+    r.scrollY += r.speed;
+
+    if (elapsed > r.stopTime && !r.stopping) {
+      r.stopping = true;
+    }
+
+    if (r.stopping) {
+      r.speed *= 0.965;
+
+      // When slow enough, snap to target
+      if (r.speed < 1.5) {
+        const cycle = s.n * s.blockH;
+        // Calculate target scrollY: center of window = scrollY + reelH/2
+        // We want block targetIdx centered: (k*n + targetIdx) * blockH + blockH/2 = scrollY + reelH/2
+        // scrollY = (k*n + targetIdx) * blockH + blockH/2 - reelH/2
+        const targetBase = r.targetIdx * s.blockH + s.blockH / 2 - s.reelH / 2;
+        const k = Math.ceil((r.scrollY - targetBase) / cycle);
+        r.scrollY = targetBase + k * cycle;
+        r.speed = 0;
+        r.stopped = true;
+        r.stoppedAt = t;
+        r.bouncing = true;
+        r.bounceStart = t;
+        sfxReelStop();
+      }
+    }
+  });
+
+  // Check if all stopped
+  if (s.reels.every(r => r.stopped) && s.phase === 'spinning') {
+    s.phase = 'revealing';
+    sfxJackpot();
+    // Spawn celebration particles
+    for (let i = 0; i < 40; i++) {
+      s.particles.push({
+        x: s.W / 2 + (Math.random() - 0.5) * s.totalReelW,
+        y: s.reelStartY + s.reelH / 2,
+        vx: (Math.random() - 0.5) * 12,
+        vy: -3 - Math.random() * 8,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        life: 1,
+        size: 3 + Math.random() * 5,
+      });
+    }
+  }
+
+  // Update particles
+  s.particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.15; // gravity
+    p.life -= 0.012;
+  });
+  s.particles = s.particles.filter(p => p.life > 0);
+
+  // Draw
+  drawPicker(ctx, s, t, elapsed);
+
+  // Winner capture
+  if (s.phase === 'revealing' && !s.winnerSnapped) {
+    s.winnerSnapped = true;
+    setTimeout(() => {
+      if (!pickerState) return;
+      captureCanvasMoment('pickerCanvas', s.winner);
+      setTimeout(() => {
+        if (!pickerState) return;
+        stopMusic();
+        const w = pickerState.winner;
+        pickerState = null;
+        resetGame();
+        showWinner(w);
+      }, 2000);
+    }, 1500);
+  }
+
+  s.raf = requestAnimationFrame(pickerLoop);
+}
+
+function drawPicker(ctx, s, t, elapsed) {
+  const { W, H, n, reels, blockH, reelW, reelH, reelGap, reelStartX, reelStartY, totalReelW, phase } = s;
+
+  // Dark background
+  ctx.fillStyle = '#0a0812';
+  ctx.fillRect(0, 0, W, H);
+
+  // Animated star field
+  for (let i = 0; i < 50; i++) {
+    const sx = (Math.sin(i * 47.3 + t * 0.00025) * 0.5 + 0.5) * W;
+    const sy = (Math.cos(i * 61.7 + t * 0.00018) * 0.5 + 0.5) * H;
+    const br = Math.sin(t * 0.004 + i * 1.3) * 0.25 + 0.25;
+    ctx.fillStyle = `rgba(180,160,255,${br})`;
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+
+  // Machine frame
+  const frameP = 28;
+  const frameX = reelStartX - frameP;
+  const frameY = reelStartY - 55;
+  const frameW = totalReelW + frameP * 2;
+  const frameH = reelH + 110;
+
+  // Outer glow
+  ctx.shadowColor = phase === 'revealing' ? '#ffcc00' : '#3a2a6a';
+  ctx.shadowBlur = phase === 'revealing' ? 40 : 20;
+
+  // Machine body
+  ctx.fillStyle = '#141020';
+  ctx.fillRect(frameX, frameY, frameW, frameH);
+  ctx.shadowBlur = 0;
+
+  // Machine border
+  ctx.strokeStyle = '#4a3a7a';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(frameX, frameY, frameW, frameH);
+
+  // Inner metallic trim
+  ctx.strokeStyle = '#2a2048';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(frameX + 6, frameY + 6, frameW - 12, frameH - 12);
+
+  // Title: "PIXEL PICKER"
+  const titleY = reelStartY - 22;
+  ctx.fillStyle = '#ffcc00';
+  ctx.shadowColor = '#ffcc00';
+  ctx.shadowBlur = phase === 'revealing' ? 30 : 15;
+  ctx.font = `bold ${Math.min(28, W * 0.038)}px "Press Start 2P", monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('PIXEL PICKER', W / 2, titleY);
+  ctx.shadowBlur = 0;
+
+  // Border lights (marquee)
+  s.lightPhase += phase === 'revealing' ? 0.2 : 0.06;
+  const lightCount = Math.floor((frameW + frameH) * 2 / 22);
+  const perimeter = (frameW + frameH) * 2;
+  for (let i = 0; i < lightCount; i++) {
+    const frac = i / lightCount;
+    const dist = frac * perimeter;
+    let lx, ly;
+    if (dist < frameW) { lx = frameX + dist; ly = frameY; }
+    else if (dist < frameW + frameH) { lx = frameX + frameW; ly = frameY + (dist - frameW); }
+    else if (dist < frameW * 2 + frameH) { lx = frameX + frameW - (dist - frameW - frameH); ly = frameY + frameH; }
+    else { lx = frameX; ly = frameY + frameH - (dist - frameW * 2 - frameH); }
+
+    const on = Math.sin(s.lightPhase + i * 0.5) > 0;
+    if (phase === 'revealing') {
+      ctx.fillStyle = on ? '#ffee44' : '#ff6600';
+      ctx.shadowColor = on ? '#ffee44' : '#ff6600';
+      ctx.shadowBlur = 8;
+    } else {
+      ctx.fillStyle = on ? '#ff8800' : '#331800';
+      ctx.shadowBlur = 0;
+    }
+    ctx.beginPath();
+    ctx.arc(lx, ly, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+
+  // Draw each reel
+  reels.forEach((r, ri) => {
+    const rx = reelStartX + ri * (reelW + reelGap);
+    const ry = reelStartY;
+
+    // Reel window dark bg
+    ctx.fillStyle = '#040406';
+    ctx.fillRect(rx, ry, reelW, reelH);
+
+    // Clip to reel
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rx, ry, reelW, reelH);
+    ctx.clip();
+
+    // Draw scrolling blocks
+    const cycle = n * blockH;
+    const scrollMod = ((r.scrollY % cycle) + cycle) % cycle;
+    const startBlock = Math.floor(scrollMod / blockH) - 1;
+    const visibleBlocks = Math.ceil(reelH / blockH) + 2;
+
+    for (let b = 0; b < visibleBlocks; b++) {
+      const blockGlobalIdx = startBlock + b;
+      const blockIdx = ((blockGlobalIdx % n) + n) % n;
+      const blockScreenY = ry + (blockGlobalIdx * blockH - scrollMod);
+
+      if (blockScreenY > ry + reelH + blockH || blockScreenY < ry - blockH) continue;
+
+      // Block background
+      const color = COLORS[blockIdx % COLORS.length];
+      const bx = rx + 5;
+      const by = blockScreenY + 3;
+      const bw = reelW - 10;
+      const bh = blockH - 6;
+
+      ctx.fillStyle = color;
+      ctx.fillRect(bx, by, bw, bh);
+
+      // Top highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.fillRect(bx, by, bw, 3);
+      // Bottom shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.fillRect(bx, by + bh - 3, bw, 3);
+
+      // Player name
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur = 4;
+      const fontSize = Math.max(9, Math.min(15, bw * 0.1, bh * 0.35));
+      ctx.font = `bold ${fontSize}px "Press Start 2P", monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const name = players[blockIdx].length > 10 ? players[blockIdx].substring(0, 9) + '..' : players[blockIdx];
+      ctx.fillText(name, rx + reelW / 2, blockScreenY + blockH / 2);
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.restore();
+
+    // Center selection bracket (golden)
+    const centerY = ry + reelH / 2;
+    const selTop = centerY - blockH / 2;
+    const selBot = centerY + blockH / 2;
+
+    // Left bracket
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(rx + 8, selTop); ctx.lineTo(rx, selTop); ctx.lineTo(rx, selBot); ctx.lineTo(rx + 8, selBot);
+    ctx.stroke();
+    // Right bracket
+    ctx.beginPath();
+    ctx.moveTo(rx + reelW - 8, selTop); ctx.lineTo(rx + reelW, selTop); ctx.lineTo(rx + reelW, selBot); ctx.lineTo(rx + reelW - 8, selBot);
+    ctx.stroke();
+
+    // Stopped glow + bounce
+    if (r.stopped) {
+      let bounceOff = 0;
+      if (r.bouncing) {
+        const bt = Math.min(1, (t - r.bounceStart) / 350);
+        bounceOff = Math.sin(bt * Math.PI * 4) * (1 - bt) * 6;
+      }
+      ctx.strokeStyle = '#ffcc00';
+      ctx.shadowColor = '#ffcc00';
+      ctx.shadowBlur = 18;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(rx + 1, selTop + bounceOff, reelW - 2, blockH);
+      ctx.shadowBlur = 0;
+    }
+
+    // Reel window border
+    ctx.strokeStyle = '#2a2048';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(rx, ry, reelW, reelH);
+  });
+
+  // Particles
+  s.particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+  });
+  ctx.globalAlpha = 1;
+
+  // Winner text below machine
+  if (phase === 'revealing') {
+    const winColor = COLORS[s.winnerIdx % COLORS.length];
+    const pulse = Math.sin(t * 0.01) * 0.15 + 0.85;
+
+    const textY = reelStartY + reelH + 42;
+    ctx.fillStyle = winColor;
+    ctx.shadowColor = winColor;
+    ctx.shadowBlur = 35 * pulse;
+    ctx.font = `bold ${Math.min(34, W * 0.042)}px "Press Start 2P", monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`\u2605 ${s.winner.toUpperCase()} \u2605`, W / 2, textY);
+    ctx.shadowBlur = 0;
+
+    // "MATCH!" subtitle
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = `bold ${Math.min(16, W * 0.02)}px monospace`;
+    ctx.fillText('JACKPOT!', W / 2, textY + 28);
+  }
+
+  ctx.textAlign = 'left';
+}
+
+function cleanupPicker() {
+  if (pickerState && pickerState.raf) cancelAnimationFrame(pickerState.raf);
+  pickerState = null;
+  stopMusic();
+}
 </script>
 </body>
 </html>
