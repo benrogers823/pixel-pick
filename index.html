@@ -8760,15 +8760,29 @@ function startSnakeGame() {
     snakes.forEach((s, i) => {
       if (!s.alive) return;
       const nh = newHeads[i];
+      const isChosenSnake = creatorMode && creatorChosenWinner && s.name === creatorChosenWinner;
       // Wall collision
       if (nh.x < 0 || nh.x >= COLS || nh.y < 0 || nh.y >= ROWS) {
-        s.alive = false; s.deathTime = performance.now(); return;
+        if (isChosenSnake) {
+          // Bounce back — reverse direction, don't move
+          nh.x = s.body[0].x; nh.y = s.body[0].y;
+          s.dir = {dx: -s.dir.dx, dy: -s.dir.dy};
+        } else {
+          s.alive = false; s.deathTime = performance.now();
+        }
+        return;
       }
       // Self collision (against current body, not new head)
       const limit = s.growing > 0 ? s.body.length : s.body.length - 1;
       for (let j = 0; j < limit; j++) {
         if (s.body[j].x === nh.x && s.body[j].y === nh.y) {
-          s.alive = false; s.deathTime = performance.now(); return;
+          if (isChosenSnake) {
+            nh.x = s.body[0].x; nh.y = s.body[0].y;
+            s.dir = {dx: -s.dir.dx, dy: -s.dir.dy};
+          } else {
+            s.alive = false; s.deathTime = performance.now();
+          }
+          return;
         }
       }
       // Collision with other snakes (current bodies)
@@ -10178,13 +10192,14 @@ function initVirus() {
       grid[ci] = i;
       counts[i]++;
     }
-    // Chosen winner gets one extra seed adjacent cell for subtle head start
+    // Chosen winner gets extra seed cells for head start
     if (i === chosenIdx) {
-      const extra = virusNeighbors4(ci, cols, rows)[0];
-      if (extra !== undefined && grid[extra] === -1) {
-        grid[extra] = i;
-        counts[i]++;
-      }
+      virusNeighbors4(ci, cols, rows).forEach(ni => {
+        if (grid[ni] === -1) {
+          grid[ni] = i;
+          counts[i]++;
+        }
+      });
     }
     // Seed frontier from this starting cell
     virusNeighbors4(pos.row * cols + pos.col, cols, rows).forEach(ni => {
@@ -10269,11 +10284,16 @@ function virusLoop(t) {
 
         // Add uninfected neighbors to frontier
         virusNeighbors4(ci, s.cols, s.rows).forEach(ni => {
-          if (s.grid[ni] === -1) s.frontier.push(ni * 32 + pi);
+          if (s.grid[ni] === -1) {
+            s.frontier.push(ni * 32 + pi);
+            // Chosen winner gets duplicate frontier entries = spreads ~2x faster
+            if (pi === s.chosenIdx) s.frontier.push(ni * 32 + pi);
+          }
         });
       } else if (s.grid[ci] !== pi) {
-        // Battle zone: small chance to flip enemy cell (immune if owned by chosen winner)
-        if (Math.random() < 0.07 && (s.chosenIdx < 0 || s.grid[ci] !== s.chosenIdx)) {
+        // Battle zone: chance to flip enemy cell — chosen winner flips more aggressively
+        const flipChance = (pi === s.chosenIdx) ? 0.18 : 0.05;
+        if (Math.random() < flipChance && (s.chosenIdx < 0 || s.grid[ci] !== s.chosenIdx)) {
           const prev = s.grid[ci];
           s.grid[ci] = pi;
           s.counts[pi]++;
@@ -10443,6 +10463,13 @@ function cleanupVirus() {
   stopMusic();
 }
 
+// Cohesive pastel-neon palette for picker — all Tailwind 400-level, same brightness
+const PICKER_COLORS = [
+  '#c084fc','#34d399','#f87171','#fbbf24','#60a5fa','#f472b6',
+  '#a3e635','#38bdf8','#fb923c','#e879f9','#4ade80','#a78bfa',
+  '#facc15','#2dd4bf','#818cf8','#f9a8d4'
+];
+
 // ============ PIXEL PICKER ============
 let pickerState = null;
 
@@ -10527,6 +10554,75 @@ function playPickerMusic() {
   schedulePickerBar(now + 0.05);
 }
 
+function sfxReelTick(speed) {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const pitch = Math.min(1400, 180 + speed * 18);
+  const vol = Math.min(0.14, 0.04 + speed * 0.003);
+  const bufLen = Math.floor(audioCtx.sampleRate * 0.012);
+  const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / bufLen * 6);
+  const src = audioCtx.createBufferSource();
+  const filt = audioCtx.createBiquadFilter();
+  const g = audioCtx.createGain();
+  src.buffer = buf; src.connect(filt); filt.connect(g); g.connect(audioCtx.destination);
+  filt.type = 'bandpass'; filt.frequency.value = pitch; filt.Q.value = 4;
+  g.gain.setValueAtTime(vol, now);
+  src.start(now); src.stop(now + 0.018);
+}
+
+function sfxLeverPull() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  // Mechanical pull: descending saw sweep
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.connect(g); g.connect(audioCtx.destination);
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(280, now);
+  osc.frequency.exponentialRampToValueAtTime(55, now + 0.22);
+  g.gain.setValueAtTime(0.35, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+  osc.start(now); osc.stop(now + 0.3);
+  // Heavy clunk at bottom
+  const osc2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  osc2.connect(g2); g2.connect(audioCtx.destination);
+  osc2.type = 'square'; osc2.frequency.value = 75;
+  g2.gain.setValueAtTime(0.45, now + 0.21);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
+  osc2.start(now + 0.21); osc2.stop(now + 0.38);
+}
+
+function sfxChaChing() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  // Cha: four ascending metallic pings
+  [880, 1108, 1320, 1760].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.type = 'sine'; osc.frequency.value = freq;
+    const nt = now + i * 0.07;
+    g.gain.setValueAtTime(0.28 - i * 0.04, nt);
+    g.gain.exponentialRampToValueAtTime(0.001, nt + 0.45);
+    osc.start(nt); osc.stop(nt + 0.5);
+  });
+  // Ching: bright sustained ring
+  setTimeout(() => {
+    if (!audioCtx) return;
+    const n2 = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.type = 'sine'; osc.frequency.value = 3520;
+    g.gain.setValueAtTime(0.28, n2);
+    g.gain.exponentialRampToValueAtTime(0.001, n2 + 0.7);
+    osc.start(n2); osc.stop(n2 + 0.75);
+  }, 380);
+}
+
 function sfxReelStop() {
   if (!audioCtx) return;
   const now = audioCtx.currentTime;
@@ -10604,6 +10700,14 @@ function initPicker() {
     winnerIdx = Math.floor(Math.random() * n);
   }
 
+  // Re-spin: 35% chance one reel mismatches — never in creator mode, never with 1 player
+  const willRespin = !creatorMode && n > 1 && Math.random() < 0.35;
+  let mismatchReel = -1, mismatchIdx = -1;
+  if (willRespin) {
+    mismatchReel = Math.floor(Math.random() * 2); // only reel 0 or 1, not the final reel
+    do { mismatchIdx = Math.floor(Math.random() * n); } while (mismatchIdx === winnerIdx);
+  }
+
   const blockH = Math.max(45, Math.min(75, H / 8));
   const reelW = Math.min(W * 0.24, 200);
   const reelH = blockH * 5;
@@ -10612,24 +10716,73 @@ function initPicker() {
   const reelStartX = (W - totalReelW) / 2;
   const reelStartY = (H - reelH) / 2 + 10;
 
-  // Each reel gets a different initial scroll offset and speed for variety
+  const frameP = 28;
+  const frameX = reelStartX - frameP;
+  const frameY = reelStartY - 55;
+  const frameW = totalReelW + frameP * 2;
+  const frameH = reelH + 110;
+
+  const makeReel = (stopTime, targetIdx) => ({
+    scrollY: Math.random() * n * blockH,
+    speed: 22 + Math.random() * 10,
+    targetIdx, stopped: false, stopping: false,
+    stoppedAt: 0, bouncing: false, bounceStart: 0,
+    stopTime, lastCenterIdx: -1, lastTickTime: 0,
+  });
+
   const reels = [
-    { scrollY: Math.random() * n * blockH, speed: 22 + Math.random() * 8, targetIdx: winnerIdx, stopped: false, stopping: false, stoppedAt: 0, bouncing: false, bounceStart: 0, stopTime: creatorMode ? 1200 : 1800 },
-    { scrollY: Math.random() * n * blockH, speed: 26 + Math.random() * 10, targetIdx: winnerIdx, stopped: false, stopping: false, stoppedAt: 0, bouncing: false, bounceStart: 0, stopTime: creatorMode ? 2800 : 3500 },
-    { scrollY: Math.random() * n * blockH, speed: 30 + Math.random() * 12, targetIdx: winnerIdx, stopped: false, stopping: false, stoppedAt: 0, bouncing: false, bounceStart: 0, stopTime: creatorMode ? 4200 : 5200 },
+    makeReel(creatorMode ? 1200 : 1800, mismatchReel === 0 ? mismatchIdx : winnerIdx),
+    makeReel(creatorMode ? 2800 : 3500, mismatchReel === 1 ? mismatchIdx : winnerIdx),
+    makeReel(creatorMode ? 4200 : 5200, winnerIdx),
   ];
+
+  // Lever positioning — right of machine if space allows, else tap-to-spin mode
+  const rightSpace = W - (frameX + frameW);
+  const hasLeverSpace = rightSpace >= 60;
+  const leverX = hasLeverSpace ? frameX + frameW + 38 : W / 2;
+  const leverPivotY = hasLeverSpace ? frameY + frameH * 0.68 : frameY + frameH + 55;
+  const leverLen = hasLeverSpace ? frameH * 0.42 : 44;
+  const leverUpAngle = hasLeverSpace ? -Math.PI * 0.32 : -Math.PI * 0.5;
+  const leverDownAngle = hasLeverSpace ? Math.PI * 0.22 : Math.PI * 0.15;
 
   pickerState = {
     canvas, ctx, W, H, n, reels,
     blockH, reelW, reelH, reelGap, reelStartX, reelStartY, totalReelW,
+    frameX, frameY, frameW, frameH,
+    leverX, leverPivotY, leverLen, leverUpAngle, leverDownAngle, hasLeverSpace,
     winnerIdx, winner: players[winnerIdx],
-    phase: 'spinning',
-    startTime: null,
-    winnerSnapped: false,
-    raf: null,
-    lightPhase: 0,
-    particles: [],
+    phase: 'lever',
+    startTime: null, winnerSnapped: false, raf: null,
+    lightPhase: 0, particles: [],
+    leverAngle: leverUpAngle, leverPulled: false,
+    leverAnimating: false, leverAnimStart: 0,
+    willRespin, mismatchReel, mismatchIdx,
+    mismatchTime: null, respinTriggered: false,
+    clickHandler: null,
   };
+
+  // Click/touch handler — lever pull or tap anywhere on right side
+  const clickHandler = (e) => {
+    const s = pickerState;
+    if (!s || s.phase !== 'lever' || s.leverPulled) return;
+    const rect = canvas.getBoundingClientRect();
+    const cx = ((e.touches ? e.touches[0].clientX : e.clientX) - rect.left) * (W / rect.width);
+    const cy = ((e.touches ? e.touches[0].clientY : e.clientY) - rect.top) * (H / rect.height);
+    const handleX = s.leverX + Math.sin(s.leverAngle) * s.leverLen;
+    const handleY = s.leverPivotY - Math.cos(s.leverAngle) * s.leverLen;
+    const nearHandle = Math.hypot(cx - handleX, cy - handleY) < 55;
+    const onRightSide = cx > s.frameX + s.frameW - 15;
+    const tapAnywhere = !s.hasLeverSpace && cy > s.frameY + s.frameH * 0.5;
+    if (nearHandle || onRightSide || tapAnywhere) {
+      s.leverPulled = true;
+      s.leverAnimating = true;
+      s.leverAnimStart = performance.now();
+      sfxLeverPull();
+    }
+  };
+  canvas.addEventListener('click', clickHandler);
+  canvas.addEventListener('touchstart', clickHandler, { passive: true });
+  pickerState.clickHandler = clickHandler;
 
   showGameIntro('picker', () => {
     if (!pickerState) return;
@@ -10640,72 +10793,106 @@ function initPicker() {
 function pickerLoop(t) {
   if (!pickerState) return;
   const s = pickerState;
-  if (!s.startTime) s.startTime = t;
-  const elapsed = t - s.startTime;
   const ctx = s.ctx;
 
-  // Update reels
-  let allStopped = true;
-  s.reels.forEach((r, ri) => {
-    if (r.stopped) return;
-    allStopped = false;
-
-    r.scrollY += r.speed;
-
-    if (elapsed > r.stopTime && !r.stopping) {
-      r.stopping = true;
-    }
-
-    if (r.stopping) {
-      r.speed *= 0.965;
-
-      // When slow enough, snap to target
-      if (r.speed < 1.5) {
-        const cycle = s.n * s.blockH;
-        // Calculate target scrollY: center of window = scrollY + reelH/2
-        // We want block targetIdx centered: (k*n + targetIdx) * blockH + blockH/2 = scrollY + reelH/2
-        // scrollY = (k*n + targetIdx) * blockH + blockH/2 - reelH/2
-        const targetBase = r.targetIdx * s.blockH + s.blockH / 2 - s.reelH / 2;
-        const k = Math.ceil((r.scrollY - targetBase) / cycle);
-        r.scrollY = targetBase + k * cycle;
-        r.speed = 0;
-        r.stopped = true;
-        r.stoppedAt = t;
-        r.bouncing = true;
-        r.bounceStart = t;
-        sfxReelStop();
+  // --- Lever phase: animate pull then transition to spinning ---
+  if (s.phase === 'lever') {
+    if (s.leverAnimating) {
+      const prog = Math.min(1, (t - s.leverAnimStart) / 420);
+      const ease = prog < 0.5 ? 2 * prog * prog : -1 + (4 - 2 * prog) * prog;
+      s.leverAngle = s.leverUpAngle + (s.leverDownAngle - s.leverUpAngle) * ease;
+      if (prog >= 1) {
+        s.leverAnimating = false;
+        s.phase = 'spinning';
+        s.startTime = t;
       }
     }
-  });
+    drawPicker(ctx, s, t, 0);
+    s.raf = requestAnimationFrame(pickerLoop);
+    return;
+  }
 
-  // Check if all stopped
-  if (s.reels.every(r => r.stopped) && s.phase === 'spinning') {
-    s.phase = 'revealing';
-    sfxJackpot();
-    // Spawn celebration particles
-    for (let i = 0; i < 40; i++) {
-      s.particles.push({
-        x: s.W / 2 + (Math.random() - 0.5) * s.totalReelW,
-        y: s.reelStartY + s.reelH / 2,
-        vx: (Math.random() - 0.5) * 12,
-        vy: -3 - Math.random() * 8,
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        life: 1,
-        size: 3 + Math.random() * 5,
+  const elapsed = s.startTime ? (t - s.startTime) : 0;
+
+  // --- Spinning / re-spinning ---
+  if (s.phase === 'spinning' || s.phase === 'respinning') {
+    let allStopped = true;
+    s.reels.forEach(r => {
+      if (r.stopped) return;
+      allStopped = false;
+      r.scrollY += r.speed;
+
+      // Tick sound: fire when a new block crosses the centre line
+      const cycle = s.n * s.blockH;
+      const scrollMod = ((r.scrollY % cycle) + cycle) % cycle;
+      const centerIdx = Math.floor((scrollMod + s.reelH / 2) / s.blockH) % s.n;
+      if (centerIdx !== r.lastCenterIdx && r.speed > 0.5) {
+        r.lastCenterIdx = centerIdx;
+        const now = performance.now();
+        if (now - r.lastTickTime > 70) { // throttle to ~14 ticks/sec per reel
+          r.lastTickTime = now;
+          sfxReelTick(r.speed);
+        }
+      }
+
+      if (elapsed > r.stopTime && !r.stopping) r.stopping = true;
+      if (r.stopping) {
+        r.speed *= 0.965;
+        if (r.speed < 1.5) {
+          const cycle2 = s.n * s.blockH;
+          const targetBase = r.targetIdx * s.blockH + s.blockH / 2 - s.reelH / 2;
+          const k = Math.ceil((r.scrollY - targetBase) / cycle2);
+          r.scrollY = targetBase + k * cycle2;
+          r.speed = 0; r.stopped = true; r.stoppedAt = t;
+          r.bouncing = true; r.bounceStart = t;
+          sfxReelStop();
+        }
+      }
+    });
+
+    if (allStopped) {
+      if (s.phase === 'spinning' && s.willRespin) {
+        s.phase = 'mismatch';
+        s.mismatchTime = t;
+      } else {
+        s.phase = 'revealing';
+        sfxChaChing();
+        for (let i = 0; i < 55; i++) {
+          s.particles.push({
+            x: s.reelStartX + Math.random() * s.totalReelW,
+            y: s.reelStartY + s.reelH * 0.5,
+            vx: (Math.random() - 0.5) * 15,
+            vy: -4 - Math.random() * 11,
+            color: PICKER_COLORS[Math.floor(Math.random() * PICKER_COLORS.length)],
+            life: 1, size: 4 + Math.random() * 6,
+          });
+        }
+      }
+    }
+  }
+
+  // --- Mismatch: show warning 2.5s then re-spin ---
+  if (s.phase === 'mismatch' && !s.respinTriggered) {
+    if (t - s.mismatchTime > 2500) {
+      s.respinTriggered = true;
+      const respinBase = elapsed + 60;
+      s.reels.forEach((r, ri) => {
+        const cycle = s.n * s.blockH;
+        r.scrollY += cycle * (1.5 + Math.random());
+        r.speed = 20 + ri * 4 + Math.random() * 8;
+        r.targetIdx = s.winnerIdx;
+        r.stopped = false; r.stopping = false;
+        r.stoppedAt = 0; r.bouncing = false;
+        r.stopTime = respinBase + [1600, 3000, 4300][ri];
       });
+      s.phase = 'respinning';
     }
   }
 
   // Update particles
-  s.particles.forEach(p => {
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vy += 0.15; // gravity
-    p.life -= 0.012;
-  });
+  s.particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.life -= 0.011; });
   s.particles = s.particles.filter(p => p.life > 0);
 
-  // Draw
   drawPicker(ctx, s, t, elapsed);
 
   // Winner capture
@@ -10721,21 +10908,24 @@ function pickerLoop(t) {
         pickerState = null;
         resetGame();
         showWinner(w);
-      }, 2000);
-    }, 1500);
+      }, 2200);
+    }, 1600);
   }
 
   s.raf = requestAnimationFrame(pickerLoop);
 }
 
 function drawPicker(ctx, s, t, elapsed) {
-  const { W, H, n, reels, blockH, reelW, reelH, reelGap, reelStartX, reelStartY, totalReelW, phase } = s;
+  const { W, H, n, reels, blockH, reelW, reelH, reelGap, reelStartX, reelStartY, totalReelW,
+          frameX, frameY, frameW, frameH, phase } = s;
+  const isRevealing = phase === 'revealing';
+  const isMismatch  = phase === 'mismatch';
 
-  // Dark background
+  // Background
   ctx.fillStyle = '#0a0812';
   ctx.fillRect(0, 0, W, H);
 
-  // Animated star field
+  // Star field
   for (let i = 0; i < 50; i++) {
     const sx = (Math.sin(i * 47.3 + t * 0.00025) * 0.5 + 0.5) * W;
     const sy = (Math.cos(i * 61.7 + t * 0.00018) * 0.5 + 0.5) * H;
@@ -10744,202 +10934,253 @@ function drawPicker(ctx, s, t, elapsed) {
     ctx.fillRect(sx, sy, 2, 2);
   }
 
-  // Machine frame
-  const frameP = 28;
-  const frameX = reelStartX - frameP;
-  const frameY = reelStartY - 55;
-  const frameW = totalReelW + frameP * 2;
-  const frameH = reelH + 110;
-
-  // Outer glow
-  ctx.shadowColor = phase === 'revealing' ? '#ffcc00' : '#3a2a6a';
-  ctx.shadowBlur = phase === 'revealing' ? 40 : 20;
-
-  // Machine body
+  // Machine body glow + fill
+  ctx.shadowColor = isRevealing ? '#ffcc00' : isMismatch ? '#ff3333' : '#3a2a6a';
+  ctx.shadowBlur   = isRevealing ? 45 : isMismatch ? 32 : 20;
   ctx.fillStyle = '#141020';
   ctx.fillRect(frameX, frameY, frameW, frameH);
   ctx.shadowBlur = 0;
 
-  // Machine border
-  ctx.strokeStyle = '#4a3a7a';
+  // Border
+  ctx.strokeStyle = isRevealing ? '#ffcc00' : isMismatch ? '#ff4444' : '#4a3a7a';
   ctx.lineWidth = 4;
   ctx.strokeRect(frameX, frameY, frameW, frameH);
-
-  // Inner metallic trim
-  ctx.strokeStyle = '#2a2048';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#2a2048'; ctx.lineWidth = 2;
   ctx.strokeRect(frameX + 6, frameY + 6, frameW - 12, frameH - 12);
 
-  // Title: "PIXEL PICKER"
-  const titleY = reelStartY - 22;
-  ctx.fillStyle = '#ffcc00';
-  ctx.shadowColor = '#ffcc00';
-  ctx.shadowBlur = phase === 'revealing' ? 30 : 15;
-  ctx.font = `bold ${Math.min(28, W * 0.038)}px "Press Start 2P", monospace`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('PIXEL PICKER', W / 2, titleY);
+  // Title
+  ctx.fillStyle = isRevealing ? '#ffcc00' : '#ddc8ff';
+  ctx.shadowColor = isRevealing ? '#ffcc00' : '#9966ff';
+  ctx.shadowBlur  = isRevealing ? 28 : 12;
+  ctx.font = `bold ${Math.min(26, W * 0.034)}px "Press Start 2P", monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('PIXEL PICKER', W / 2, reelStartY - 22);
   ctx.shadowBlur = 0;
 
-  // Border lights (marquee)
-  s.lightPhase += phase === 'revealing' ? 0.2 : 0.06;
-  const lightCount = Math.floor((frameW + frameH) * 2 / 22);
+  // Marquee lights
+  s.lightPhase += isRevealing ? 0.22 : isMismatch ? 0.16 : 0.05;
   const perimeter = (frameW + frameH) * 2;
+  const lightCount = Math.floor(perimeter / 22);
   for (let i = 0; i < lightCount; i++) {
-    const frac = i / lightCount;
-    const dist = frac * perimeter;
+    const dist = (i / lightCount) * perimeter;
     let lx, ly;
-    if (dist < frameW) { lx = frameX + dist; ly = frameY; }
-    else if (dist < frameW + frameH) { lx = frameX + frameW; ly = frameY + (dist - frameW); }
-    else if (dist < frameW * 2 + frameH) { lx = frameX + frameW - (dist - frameW - frameH); ly = frameY + frameH; }
-    else { lx = frameX; ly = frameY + frameH - (dist - frameW * 2 - frameH); }
-
+    if (dist < frameW)                     { lx = frameX + dist;                       ly = frameY; }
+    else if (dist < frameW + frameH)       { lx = frameX + frameW;                     ly = frameY + (dist - frameW); }
+    else if (dist < frameW * 2 + frameH)   { lx = frameX + frameW - (dist - frameW - frameH); ly = frameY + frameH; }
+    else                                   { lx = frameX;                               ly = frameY + frameH - (dist - frameW * 2 - frameH); }
     const on = Math.sin(s.lightPhase + i * 0.5) > 0;
-    if (phase === 'revealing') {
+    if (isRevealing) {
       ctx.fillStyle = on ? '#ffee44' : '#ff6600';
-      ctx.shadowColor = on ? '#ffee44' : '#ff6600';
-      ctx.shadowBlur = 8;
+      ctx.shadowColor = on ? '#ffee44' : '#ff6600'; ctx.shadowBlur = 8;
+    } else if (isMismatch) {
+      ctx.fillStyle = on ? '#ff4444' : '#220000';
+      ctx.shadowColor = '#ff4444'; ctx.shadowBlur = on ? 10 : 0;
     } else {
-      ctx.fillStyle = on ? '#ff8800' : '#331800';
-      ctx.shadowBlur = 0;
+      ctx.fillStyle = on ? '#ff8800' : '#2a1400'; ctx.shadowBlur = 0;
     }
-    ctx.beginPath();
-    ctx.arc(lx, ly, 4, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI * 2); ctx.fill();
   }
   ctx.shadowBlur = 0;
 
-  // Draw each reel
+  // Reels
   reels.forEach((r, ri) => {
     const rx = reelStartX + ri * (reelW + reelGap);
     const ry = reelStartY;
-
-    // Reel window dark bg
     ctx.fillStyle = '#040406';
     ctx.fillRect(rx, ry, reelW, reelH);
 
-    // Clip to reel
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(rx, ry, reelW, reelH);
-    ctx.clip();
+    ctx.beginPath(); ctx.rect(rx, ry, reelW, reelH); ctx.clip();
 
-    // Draw scrolling blocks
     const cycle = n * blockH;
     const scrollMod = ((r.scrollY % cycle) + cycle) % cycle;
     const startBlock = Math.floor(scrollMod / blockH) - 1;
     const visibleBlocks = Math.ceil(reelH / blockH) + 2;
 
     for (let b = 0; b < visibleBlocks; b++) {
-      const blockGlobalIdx = startBlock + b;
-      const blockIdx = ((blockGlobalIdx % n) + n) % n;
-      const blockScreenY = ry + (blockGlobalIdx * blockH - scrollMod);
+      const gIdx = startBlock + b;
+      const blockIdx = ((gIdx % n) + n) % n;
+      const bsy = ry + (gIdx * blockH - scrollMod);
+      if (bsy > ry + reelH + blockH || bsy < ry - blockH) continue;
 
-      if (blockScreenY > ry + reelH + blockH || blockScreenY < ry - blockH) continue;
+      const color = PICKER_COLORS[blockIdx % PICKER_COLORS.length];
+      const bx = rx + 5, by = bsy + 3, bw = reelW - 10, bh = blockH - 6;
+      ctx.fillStyle = color; ctx.fillRect(bx, by, bw, bh);
+      ctx.fillStyle = 'rgba(255,255,255,0.16)'; ctx.fillRect(bx, by, bw, 3);
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';       ctx.fillRect(bx, by + bh - 3, bw, 3);
 
-      // Block background
-      const color = COLORS[blockIdx % COLORS.length];
-      const bx = rx + 5;
-      const by = blockScreenY + 3;
-      const bw = reelW - 10;
-      const bh = blockH - 6;
-
-      ctx.fillStyle = color;
-      ctx.fillRect(bx, by, bw, bh);
-
-      // Top highlight
-      ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      ctx.fillRect(bx, by, bw, 3);
-      // Bottom shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.fillRect(bx, by + bh - 3, bw, 3);
-
-      // Player name
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = 'rgba(0,0,0,0.7)';
-      ctx.shadowBlur = 4;
-      const fontSize = Math.max(9, Math.min(15, bw * 0.1, bh * 0.35));
-      ctx.font = `bold ${fontSize}px "Press Start 2P", monospace`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const name = players[blockIdx].length > 10 ? players[blockIdx].substring(0, 9) + '..' : players[blockIdx];
-      ctx.fillText(name, rx + reelW / 2, blockScreenY + blockH / 2);
-      ctx.shadowBlur = 0;
+      // Dark text on bright tiles
+      ctx.fillStyle = '#1a1028'; ctx.shadowBlur = 0;
+      const fs = Math.max(9, Math.min(13, bw * 0.09, bh * 0.3));
+      ctx.font = `bold ${fs}px "Press Start 2P", monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const nm = players[blockIdx].length > 10 ? players[blockIdx].substring(0,9)+'..' : players[blockIdx];
+      ctx.fillText(nm, rx + reelW / 2, bsy + blockH / 2);
     }
 
     ctx.restore();
 
-    // Center selection bracket (golden)
+    // Speed-blur gradient overlay when spinning fast
+    if (!r.stopped && r.speed > 8) {
+      const alpha = Math.min(0.5, (r.speed - 8) / 35);
+      const gr = ctx.createLinearGradient(rx, ry, rx, ry + reelH);
+      gr.addColorStop(0,   `rgba(4,4,6,${alpha})`);
+      gr.addColorStop(0.18,'rgba(4,4,6,0)');
+      gr.addColorStop(0.82,'rgba(4,4,6,0)');
+      gr.addColorStop(1,   `rgba(4,4,6,${alpha})`);
+      ctx.fillStyle = gr; ctx.fillRect(rx, ry, reelW, reelH);
+    }
+
+    // Centre selection bracket
     const centerY = ry + reelH / 2;
     const selTop = centerY - blockH / 2;
     const selBot = centerY + blockH / 2;
-
-    // Left bracket
-    ctx.strokeStyle = '#ffcc00';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(rx + 8, selTop); ctx.lineTo(rx, selTop); ctx.lineTo(rx, selBot); ctx.lineTo(rx + 8, selBot);
+    ctx.moveTo(rx+8,selTop); ctx.lineTo(rx,selTop); ctx.lineTo(rx,selBot); ctx.lineTo(rx+8,selBot);
     ctx.stroke();
-    // Right bracket
     ctx.beginPath();
-    ctx.moveTo(rx + reelW - 8, selTop); ctx.lineTo(rx + reelW, selTop); ctx.lineTo(rx + reelW, selBot); ctx.lineTo(rx + reelW - 8, selBot);
+    ctx.moveTo(rx+reelW-8,selTop); ctx.lineTo(rx+reelW,selTop); ctx.lineTo(rx+reelW,selBot); ctx.lineTo(rx+reelW-8,selBot);
     ctx.stroke();
 
-    // Stopped glow + bounce
+    // Stopped glow / bounce
     if (r.stopped) {
-      let bounceOff = 0;
-      if (r.bouncing) {
-        const bt = Math.min(1, (t - r.bounceStart) / 350);
-        bounceOff = Math.sin(bt * Math.PI * 4) * (1 - bt) * 6;
-      }
-      ctx.strokeStyle = '#ffcc00';
-      ctx.shadowColor = '#ffcc00';
-      ctx.shadowBlur = 18;
+      let bo = 0;
+      if (r.bouncing) { const bt = Math.min(1,(t-r.bounceStart)/350); bo = Math.sin(bt*Math.PI*4)*(1-bt)*6; }
+      const isBadReel = isMismatch && ri === s.mismatchReel;
+      ctx.strokeStyle  = isBadReel ? '#ff4444' : '#ffcc00';
+      ctx.shadowColor  = isBadReel ? '#ff4444' : '#ffcc00';
+      ctx.shadowBlur   = isBadReel ? 24 : 18;
       ctx.lineWidth = 3;
-      ctx.strokeRect(rx + 1, selTop + bounceOff, reelW - 2, blockH);
+      ctx.strokeRect(rx+1, selTop+bo, reelW-2, blockH);
       ctx.shadowBlur = 0;
     }
 
-    // Reel window border
-    ctx.strokeStyle = '#2a2048';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#2a2048'; ctx.lineWidth = 2;
     ctx.strokeRect(rx, ry, reelW, reelH);
   });
+
+  // Lever
+  drawPickerLever(ctx, s, t);
 
   // Particles
   s.particles.forEach(p => {
     ctx.globalAlpha = Math.max(0, p.life);
     ctx.fillStyle = p.color;
-    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
   });
   ctx.globalAlpha = 1;
 
-  // Winner text below machine
-  if (phase === 'revealing') {
-    const winColor = COLORS[s.winnerIdx % COLORS.length];
-    const pulse = Math.sin(t * 0.01) * 0.15 + 0.85;
+  // ---- Phase overlays ----
 
-    const textY = reelStartY + reelH + 42;
-    ctx.fillStyle = winColor;
-    ctx.shadowColor = winColor;
-    ctx.shadowBlur = 35 * pulse;
-    ctx.font = `bold ${Math.min(34, W * 0.042)}px "Press Start 2P", monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`\u2605 ${s.winner.toUpperCase()} \u2605`, W / 2, textY);
+  // Lever prompt
+  if (phase === 'lever') {
+    const py = reelStartY + reelH + (s.hasLeverSpace ? 35 : 90);
+    const pulse = Math.sin(t * 0.006) * 0.3 + 0.7;
+    ctx.fillStyle = `rgba(255,204,0,${pulse})`;
+    ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 14;
+    ctx.font = `bold ${Math.min(18, W * 0.024)}px "Press Start 2P", monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(s.hasLeverSpace ? 'PULL THE LEVER!' : 'TAP TO SPIN!', W / 2, py);
     ctx.shadowBlur = 0;
+  }
 
-    // "MATCH!" subtitle
-    ctx.fillStyle = '#ffcc00';
-    ctx.font = `bold ${Math.min(16, W * 0.02)}px monospace`;
-    ctx.fillText('JACKPOT!', W / 2, textY + 28);
+  // Mismatch warning
+  if (isMismatch) {
+    const mEl = t - s.mismatchTime;
+    const flash = Math.floor(mEl / 180) % 2 === 0;
+    const mrx = reelStartX + s.mismatchReel * (reelW + reelGap);
+    ctx.fillStyle = flash ? 'rgba(255,0,0,0.28)' : 'rgba(255,0,0,0.10)';
+    ctx.fillRect(mrx, reelStartY, reelW, reelH);
+
+    ctx.fillStyle   = flash ? '#ff4444' : '#ff8888';
+    ctx.shadowColor = '#ff0000'; ctx.shadowBlur = flash ? 28 : 10;
+    ctx.font = `bold ${Math.min(17, W * 0.022)}px "Press Start 2P", monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('\u26A0 GLITCH DETECTED!', W / 2, reelStartY + reelH + 28);
+    ctx.fillStyle = '#ffaaaa'; ctx.shadowBlur = 0;
+    ctx.font = `bold ${Math.min(12, W * 0.016)}px monospace`;
+    ctx.fillText('ONE REEL MALFUNCTIONED — RE-SPINNING...', W / 2, reelStartY + reelH + 52);
+  }
+
+  // Winner reveal — clear banner
+  if (isRevealing) {
+    const winColor = PICKER_COLORS[s.winnerIdx % PICKER_COLORS.length];
+    const pulse = Math.sin(t * 0.009) * 0.12 + 0.88;
+    const bannerY = reelStartY + reelH + 12;
+    const bannerH = 72;
+
+    // Coloured banner
+    ctx.fillStyle = `${winColor}28`;
+    ctx.fillRect(frameX + 4, bannerY, frameW - 8, bannerH);
+    ctx.strokeStyle = winColor; ctx.lineWidth = 2;
+    ctx.strokeRect(frameX + 4, bannerY, frameW - 8, bannerH);
+
+    // Label
+    ctx.fillStyle = '#aaaacc';
+    ctx.font = `bold ${Math.min(10, W * 0.013)}px monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('THE WINNER IS', W / 2, bannerY + 16);
+
+    // Name — big and glowing
+    ctx.fillStyle   = winColor;
+    ctx.shadowColor = winColor;
+    ctx.shadowBlur  = 32 * pulse;
+    ctx.font = `bold ${Math.min(30, W * 0.038)}px "Press Start 2P", monospace`;
+    ctx.fillText(s.winner.toUpperCase(), W / 2, bannerY + 50);
+    ctx.shadowBlur = 0;
   }
 
   ctx.textAlign = 'left';
 }
 
+function drawPickerLever(ctx, s, t) {
+  const { leverX, leverPivotY, leverLen, leverAngle, phase, hasLeverSpace } = s;
+  if (!hasLeverSpace && phase !== 'lever') return; // hide on narrow screens after pull
+
+  const handleX = leverX + Math.sin(leverAngle) * leverLen;
+  const handleY = leverPivotY - Math.cos(leverAngle) * leverLen;
+
+  // Pivot mount
+  ctx.fillStyle = '#2a2040'; ctx.strokeStyle = '#4a3a7a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(leverX, leverPivotY, 10, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  // Rod
+  ctx.strokeStyle = '#999aaa'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(leverX, leverPivotY); ctx.lineTo(handleX, handleY);
+  ctx.stroke(); ctx.lineCap = 'butt';
+
+  // Ball
+  const pulled = phase !== 'lever' || s.leverPulled;
+  ctx.fillStyle   = pulled ? '#555566' : '#ff3333';
+  ctx.shadowColor = pulled ? '#333344' : '#ff1111';
+  ctx.shadowBlur  = pulled ? 4 : 22;
+  ctx.beginPath(); ctx.arc(handleX, handleY, 14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.shadowBlur = 0;
+  ctx.beginPath(); ctx.arc(handleX - 4, handleY - 4, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // "PULL" label
+  if (phase === 'lever' && !s.leverPulled) {
+    const pulse = Math.sin(t * 0.008) * 0.4 + 0.6;
+    ctx.fillStyle = `rgba(255,60,60,${pulse})`;
+    ctx.font = `bold 10px "Press Start 2P", monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('PULL', handleX, handleY + 28);
+  }
+}
+
 function cleanupPicker() {
-  if (pickerState && pickerState.raf) cancelAnimationFrame(pickerState.raf);
+  if (pickerState) {
+    if (pickerState.raf) cancelAnimationFrame(pickerState.raf);
+    const canvas = document.getElementById('pickerCanvas');
+    if (canvas && pickerState.clickHandler) {
+      canvas.removeEventListener('click', pickerState.clickHandler);
+      canvas.removeEventListener('touchstart', pickerState.clickHandler);
+    }
+  }
   pickerState = null;
   stopMusic();
 }
