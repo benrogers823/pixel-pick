@@ -693,9 +693,22 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 @keyframes crDecideBlink { 0%{opacity:0.5; text-shadow:0 0 10px rgba(233,69,96,0.4);} 100%{opacity:1; text-shadow:0 0 25px rgba(233,69,96,0.9), 0 0 50px rgba(233,69,96,0.3);} }
 
 /* Running commentary overlay during gameplay */
-#crCommentary { position:fixed; bottom:40px; left:50%; transform:translateX(-50%); z-index:9999; font-family:'Press Start 2P',monospace; font-size:clamp(0.55em,2vw,0.9em); color:#ffe066; text-shadow:0 0 12px rgba(255,224,102,0.9), 0 0 30px rgba(255,224,102,0.4); background:rgba(0,0,0,0.7); border:2px solid rgba(255,224,102,0.4); padding:10px 22px; border-radius:4px; white-space:nowrap; max-width:90vw; text-align:center; pointer-events:none; opacity:0; transition:opacity 0.25s ease; letter-spacing:1px; }
+#crCommentary { position:fixed; bottom:44px; left:50%; transform:translateX(-50%); z-index:9999; font-family:'Press Start 2P',monospace; font-size:clamp(0.42em,2.5vw,0.65em); color:#ffe066; text-shadow:0 0 8px rgba(255,224,102,0.9); background:rgba(0,0,0,0.82); border:1px solid rgba(255,224,102,0.5); padding:8px 14px; border-radius:3px; white-space:normal; max-width:min(88vw,320px); width:max-content; text-align:center; pointer-events:none; opacity:0; transition:opacity 0.2s ease; letter-spacing:0.5px; line-height:1.5; word-break:break-word; }
 #crCommentary.cr-comm-show { opacity:1; }
 #crCommentary.cr-comm-hide { opacity:0; }
+/* Cursor blink for typing effect */
+#crCommentary::after { content:'▮'; animation:crCursorBlink 0.7s step-end infinite; }
+#crCommentary.cr-typed::after { display:none; }
+@keyframes crCursorBlink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+
+/* Creator mode: hide distracting UI */
+.creator-mode-active #muteBtn { display:none !important; }
+.creator-mode-active #engulfInfo,
+.creator-mode-active #engulfStatus,
+.creator-mode-active #battleInfo,
+.creator-mode-active #snakeInfo,
+.creator-mode-active #shipsStatus,
+.creator-mode-active #balloonStatus { display:none !important; }
 
 /* Keyframes shared by hook */
 @keyframes crSlideDown { 0%{transform:translateY(-60px);opacity:0;} 100%{transform:translateY(0);opacity:1;} }
@@ -1213,7 +1226,7 @@ function showGameIntro(gameId, onClose) {
 }
 let lastWinningMoment = null; // data URL of the winning moment screenshot
 const SINGLE_PICK_ONLY = ['wheel', 'namepicker', 'engulf', 'horses'];
-const LARGE_GROUP_GAMES = ['golf', 'wheel']; // Only these available for 17+ players
+const LARGE_GROUP_GAMES = ['golf', 'wheel', 'picker']; // Only these available for 17+ players
 let playerRangeHigh = false; // false = 1-16, true = 17-32
 
 // Mobile touch helpers
@@ -2247,7 +2260,7 @@ const GAMES = [
   {id:'golf',       name:'Golf',          icon:'\u26F3'},
   {id:'namepicker', name:'Name Picker',   icon:'\u2728'},
   {id:'wheel',      name:'Spinning Wheel',icon:'\u{1F3A1}'},
-  {id:'random',     name:'??? RANDOM',    icon:'\u{1F3B2}'},
+  {id:'random',     name:"Computer's Choice", icon:'\u{1F3B2}'},
 ];
 let enabledGames = GAMES.map(g => g.id);
 
@@ -2305,8 +2318,8 @@ function goToGameSelect() {
   // Build available games and show game select screen
   beltGames = getAvailableGames();
   if (beltGames.length === 0) beltGames = [...GAMES];
-  // Start with marble centred (random is one slot to its left)
-  beltCurrentIdx = beltGames.findIndex(g => g.id === 'virus');
+  // Start on Computer's Choice
+  beltCurrentIdx = beltGames.findIndex(g => g.id === 'random');
   if (beltCurrentIdx < 0) beltCurrentIdx = 0;
   clawAnimating = false;
   beltAnimating = false;
@@ -2605,9 +2618,10 @@ const GAME_ART = {
     ctx.fillText('?', w/2, h*0.62);
     ctx.shadowBlur = 0;
     // Label
-    ctx.font = `bold ${w*0.1}px monospace`; ctx.fillStyle = '#ffdd00';
+    ctx.font = `bold ${w*0.075}px monospace`; ctx.fillStyle = '#ffdd00';
     ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 8;
-    ctx.fillText('RANDOM', w/2, h*0.9);
+    ctx.fillText("COMPUTER'S", w/2, h*0.87);
+    ctx.fillText('CHOICE', w/2, h*0.95);
     ctx.shadowBlur = 0;
   },
   snake: (ctx, w, h) => {
@@ -2905,10 +2919,38 @@ function selectCDGame(gameId) {
     }
     document.querySelectorAll('.pp-machine-light').forEach(l => l.classList.remove('on'));
     clawAnimating = false;
-    // Random picks from the action games pool
-    const resolvedId = gameId === 'random'
-      ? ['horses','ships','engulf','battle','marble'][Math.floor(Math.random()*5)]
-      : gameId;
+    // Random picks using player-count-weighted selection
+    function pickWeightedRandom(n) {
+      const pool = [];
+      const add = (id, w) => { for (let i = 0; i < w; i++) pool.push(id); };
+      if (n >= 17) {
+        // 17+ players: picker is dominant, golf still available
+        add('picker', 8);
+        add('golf',   2);
+      } else {
+        // Under 17: exclude golf, wheel, namepicker
+        // marble: preferred 2-4
+        if (n >= 2 && n <= 4)  add('marble',  6); else add('marble', 1);
+        // battle: preferred 3-6
+        if (n >= 3 && n <= 6)  add('battle',  5); else if (n >= 2) add('battle', 1);
+        // ships: preferred 4-8
+        if (n >= 4 && n <= 8)  add('ships',   5); else if (n >= 2) add('ships',  1);
+        // engulf: preferred 5-9
+        if (n >= 5 && n <= 9)  add('engulf',  5); else if (n >= 2) add('engulf', 1);
+        // horses: preferred 2-8
+        if (n >= 2 && n <= 8)  add('horses',  4); else add('horses', 1);
+        // picker: preferred 4-32, main option for 16+
+        if (n >= 16)           add('picker',  8);
+        else if (n >= 4)       add('picker',  3);
+        else                   add('picker',  1);
+        // virus: preferred for even player counts
+        if (n % 2 === 0)       add('virus',   4); else add('virus', 1);
+        // balloon always available
+        add('balloon', 2);
+      }
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+    const resolvedId = gameId === 'random' ? pickWeightedRandom(players.length) : gameId;
     enabledGames = [resolvedId];
     startGame(resolvedId);
   }, 3500);
@@ -9234,6 +9276,7 @@ function initCreatorMode() {
   const params = new URLSearchParams(window.location.search);
   if (params.get('creator') !== 'true') return;
   creatorMode = true;
+  document.body.classList.add('creator-mode-active');
   const splash = document.getElementById('splashScreen');
   if (splash) { splash.style.display = 'none'; splash.classList.remove('active'); }
   showCreatorSetup();
@@ -9707,32 +9750,54 @@ function creatorStartGame() {
 // ---- Running commentary system (creator mode only) ----
 let _crCommInterval = null;
 let _crCommTimeout = null;
+let _crTypeTimeout = null;
 
 function startCreatorCommentary(gameType) {
   stopCreatorCommentary();
   const el = document.getElementById('crCommentary');
   if (!el) return;
   let tick = 0;
-  function fireCommentary() {
-    const line = getCommentaryLine(gameType, tick++);
-    if (!line) return;
-    el.textContent = line;
+
+  function typeText(text, cb) {
+    if (_crTypeTimeout) { clearTimeout(_crTypeTimeout); _crTypeTimeout = null; }
+    el.classList.remove('cr-typed');
+    el.textContent = '';
     el.classList.remove('cr-comm-hide');
     el.classList.add('cr-comm-show');
-    _crCommTimeout = setTimeout(() => {
-      el.classList.remove('cr-comm-show');
-      el.classList.add('cr-comm-hide');
-    }, 2000);
+    let i = 0;
+    function typeChar() {
+      if (i < text.length) {
+        el.textContent = text.slice(0, ++i);
+        _crTypeTimeout = setTimeout(typeChar, 28 + Math.random() * 18);
+      } else {
+        el.classList.add('cr-typed');
+        if (cb) cb();
+      }
+    }
+    typeChar();
   }
-  fireCommentary();
-  _crCommInterval = setInterval(fireCommentary, 2800);
+
+  function fireCommentary() {
+    const line = getCommentaryLine(gameType, tick++);
+    if (!line) { _crCommInterval = setTimeout(fireCommentary, 7000); return; }
+    typeText(line, () => {
+      _crCommTimeout = setTimeout(() => {
+        el.classList.remove('cr-comm-show');
+        el.classList.add('cr-comm-hide');
+        _crCommInterval = setTimeout(fireCommentary, 6000 + Math.random() * 3000);
+      }, 3000);
+    });
+  }
+
+  _crCommInterval = setTimeout(fireCommentary, 1500);
 }
 
 function stopCreatorCommentary() {
-  if (_crCommInterval) { clearInterval(_crCommInterval); _crCommInterval = null; }
+  if (_crCommInterval) { clearTimeout(_crCommInterval); _crCommInterval = null; }
   if (_crCommTimeout) { clearTimeout(_crCommTimeout); _crCommTimeout = null; }
+  if (_crTypeTimeout) { clearTimeout(_crTypeTimeout); _crTypeTimeout = null; }
   const el = document.getElementById('crCommentary');
-  if (el) { el.classList.remove('cr-comm-show'); el.classList.add('cr-comm-hide'); }
+  if (el) { el.classList.remove('cr-comm-show', 'cr-typed'); el.classList.add('cr-comm-hide'); }
 }
 
 function getCommentaryLine(gameType, tick) {
@@ -10198,6 +10263,10 @@ function initVirus() {
         if (grid[ni] === -1) {
           grid[ni] = i;
           counts[i]++;
+          // Seed frontier from each extra cell so they can spread immediately
+          virusNeighbors4(ni, cols, rows).forEach(nni => {
+            if (grid[nni] === -1) frontier.push(nni * 32 + i);
+          });
         }
       });
     }
@@ -10353,10 +10422,11 @@ function virusLoop(t) {
     drawVirusHUD(ctx, s, t, elapsed); // redraw HUD with winner overlay
     setTimeout(() => {
       if (!virusState) return;
-      captureCanvasMoment('virusCanvas', s.winner);
+      const displayWinner = (creatorMode && creatorChosenWinner) ? creatorChosenWinner : s.winner;
+    captureCanvasMoment('virusCanvas', displayWinner);
       setTimeout(() => {
         if (!virusState) return;
-        const w = virusState.winner;
+        const w = displayWinner;
         virusState = null;
         resetGame();
         showWinner(w);
@@ -10395,25 +10465,26 @@ function drawVirusHUD(ctx, s, t, elapsed) {
     ctx.fillRect(barX, barY, W - 4 - barX, barH);
   }
 
-  // Player labels (small, horizontal)
-  const labelY = hudH * 0.78;
-  const maxLabelW = W / n;
-  const fontSize = Math.max(7, Math.min(13, maxLabelW * 0.18));
-  ctx.font = `bold ${fontSize}px monospace`;
-  ctx.textBaseline = 'middle';
-
-  counts.forEach((c, i) => {
-    const pct = ((c / totalCells) * 100).toFixed(0);
-    const lx = (i + 0.5) * (W / n);
-    ctx.textAlign = 'center';
-    ctx.fillStyle = colors[i];
-    ctx.shadowColor = 'rgba(0,0,0,0.95)';
-    ctx.shadowBlur = 5;
-    const label = `${names[i].length > 7 ? names[i].substring(0,6) + '.' : names[i]} ${pct}%`;
-    ctx.fillText(label, lx, labelY);
-  });
-  ctx.shadowBlur = 0;
-  ctx.textAlign = 'left';
+  // Player labels (small, horizontal) — hidden in creator mode
+  if (!creatorMode) {
+    const labelY = hudH * 0.78;
+    const maxLabelW = W / n;
+    const fontSize = Math.max(7, Math.min(13, maxLabelW * 0.18));
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.textBaseline = 'middle';
+    counts.forEach((c, i) => {
+      const pct = ((c / totalCells) * 100).toFixed(0);
+      const lx = (i + 0.5) * (W / n);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = colors[i];
+      ctx.shadowColor = 'rgba(0,0,0,0.95)';
+      ctx.shadowBlur = 5;
+      const label = `${names[i].length > 7 ? names[i].substring(0,6) + '.' : names[i]} ${pct}%`;
+      ctx.fillText(label, lx, labelY);
+    });
+    ctx.shadowBlur = 0;
+    ctx.textAlign = 'left';
+  }
 
   // Timer top-right
   if (phase === 'spreading' && elapsed !== undefined) {
@@ -10431,7 +10502,8 @@ function drawVirusHUD(ctx, s, t, elapsed) {
 
   // Winner overlay
   if (phase === 'done' && s.winner) {
-    const winIdx = names.indexOf(s.winner);
+    const displayName = (creatorMode && creatorChosenWinner) ? creatorChosenWinner : s.winner;
+    const winIdx = names.indexOf(displayName);
     const winColor = winIdx >= 0 ? colors[winIdx] : '#ffffff';
     const pct = winIdx >= 0 ? ((counts[winIdx] / totalCells) * 100).toFixed(1) : '?';
 
@@ -10447,7 +10519,7 @@ function drawVirusHUD(ctx, s, t, elapsed) {
     ctx.shadowBlur = 35;
     ctx.fillStyle = winColor;
     ctx.font = `bold ${Math.min(44, W * 0.055)}px monospace`;
-    ctx.fillText(`\u{1F9EC} ${s.winner.toUpperCase()} WINS!`, W / 2, oy + H * 0.1);
+    ctx.fillText(`\u{1F9EC} ${displayName.toUpperCase()} WINS!`, W / 2, oy + H * 0.1);
 
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#cccccc';
@@ -10474,6 +10546,7 @@ const PICKER_COLORS = [
 let pickerState = null;
 
 function playPickerMusic() {
+  initAudio();
   if (!audioCtx) return;
   stopMusic();
   currentMusic = 'picker';
@@ -10482,70 +10555,103 @@ function playPickerMusic() {
 
   function schedulePickerBar(startTime) {
     if (!isMusicPlaying || currentMusic !== 'picker') return;
-    const bpm = 140;
+    const bpm = 92;
     const beat = 60 / bpm;
     const bar = beat * 4;
+    const sw = beat * 0.1; // swing offset for "and" beats
 
-    // Tension bass drum: heartbeat pattern
-    [0, 0.5, 2, 2.5].forEach(b => {
-      const bt = startTime + b * beat;
+    // === Walking bass — sine, warm (D minor: D2 F2 A2 C3 Bb2 A2 G2 F2) ===
+    [73.4, 87.3, 110, 130.8, 116.5, 110, 98, 87.3].forEach((freq, i) => {
+      const bt = startTime + i * (beat / 2);
       const osc = audioCtx.createOscillator();
       const g = audioCtx.createGain();
       osc.connect(g); g.connect(musicGain);
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(80, bt);
-      osc.frequency.exponentialRampToValueAtTime(30, bt + 0.2);
-      g.gain.setValueAtTime(0.45, bt);
-      g.gain.exponentialRampToValueAtTime(0.001, bt + 0.25);
-      osc.start(bt); osc.stop(bt + 0.3);
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.28, bt);
+      g.gain.exponentialRampToValueAtTime(0.001, bt + beat * 0.42);
+      osc.start(bt); osc.stop(bt + beat * 0.48);
     });
 
-    // Suspenseful rising pad
-    const pad = audioCtx.createOscillator();
-    const padG = audioCtx.createGain();
-    const padF = audioCtx.createBiquadFilter();
-    pad.connect(padF); padF.connect(padG); padG.connect(musicGain);
-    pad.type = 'sawtooth';
-    padF.type = 'lowpass'; padF.frequency.value = 600;
-    pad.frequency.setValueAtTime(110, startTime);
-    pad.frequency.linearRampToValueAtTime(130, startTime + bar);
-    padG.gain.setValueAtTime(0.08, startTime);
-    padG.gain.linearRampToValueAtTime(0.12, startTime + bar * 0.9);
-    padG.gain.exponentialRampToValueAtTime(0.001, startTime + bar);
-    pad.start(startTime); pad.stop(startTime + bar + 0.1);
+    // === Soft kick on beat 1 ===
+    const kick = audioCtx.createOscillator();
+    const kickG = audioCtx.createGain();
+    kick.connect(kickG); kickG.connect(musicGain);
+    kick.type = 'sine';
+    kick.frequency.setValueAtTime(110, startTime);
+    kick.frequency.exponentialRampToValueAtTime(40, startTime + 0.12);
+    kickG.gain.setValueAtTime(0.2, startTime);
+    kickG.gain.exponentialRampToValueAtTime(0.001, startTime + 0.18);
+    kick.start(startTime); kick.stop(startTime + 0.2);
 
-    // Rapid tick-tick-tick (slot machine clicks, getting faster)
-    for (let i = 0; i < 16; i++) {
-      const tt = startTime + i * (beat / 4);
-      const bufLen = Math.floor(audioCtx.sampleRate * 0.015);
-      const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let j = 0; j < bufLen; j++) d[j] = (Math.random() * 2 - 1) * 0.5;
-      const src = audioCtx.createBufferSource();
-      const filt = audioCtx.createBiquadFilter();
-      const g = audioCtx.createGain();
-      src.buffer = buf;
-      src.connect(filt); filt.connect(g); g.connect(musicGain);
-      filt.type = 'bandpass'; filt.frequency.value = 3000 + i * 200;
-      g.gain.setValueAtTime(0.04 + i * 0.005, tt);
-      g.gain.exponentialRampToValueAtTime(0.001, tt + 0.02);
-      src.start(tt); src.stop(tt + 0.03);
-    }
+    // === Brushed snare on beat 3 ===
+    const snT = startTime + beat * 2;
+    const snLen = Math.floor(audioCtx.sampleRate * 0.055);
+    const snBuf = audioCtx.createBuffer(1, snLen, audioCtx.sampleRate);
+    const snD = snBuf.getChannelData(0);
+    for (let i = 0; i < snLen; i++) snD[i] = (Math.random() * 2 - 1) * Math.exp(-i / snLen * 9);
+    const snSrc = audioCtx.createBufferSource();
+    const snF = audioCtx.createBiquadFilter();
+    const snG = audioCtx.createGain();
+    snSrc.buffer = snBuf; snSrc.connect(snF); snF.connect(snG); snG.connect(musicGain);
+    snF.type = 'bandpass'; snF.frequency.value = 2800; snF.Q.value = 0.9;
+    snG.gain.setValueAtTime(0.13, snT);
+    snG.gain.exponentialRampToValueAtTime(0.001, snT + 0.07);
+    snSrc.start(snT); snSrc.stop(snT + 0.08);
 
-    // Staccato melody notes (gameshow anticipation)
-    const melody = [330, 0, 392, 0, 330, 392, 440, 0];
-    melody.forEach((freq, i) => {
-      if (freq === 0) return;
-      const nt = startTime + i * (beat / 2);
+    // === Ride cymbal — sparse swing hits ===
+    [0, beat + sw, beat * 3 + sw].forEach(offset => {
+      const ht = startTime + offset;
+      const hLen = Math.floor(audioCtx.sampleRate * 0.07);
+      const hBuf = audioCtx.createBuffer(1, hLen, audioCtx.sampleRate);
+      const hD = hBuf.getChannelData(0);
+      for (let i = 0; i < hLen; i++) hD[i] = (Math.random() * 2 - 1) * Math.exp(-i / hLen * 11);
+      const hSrc = audioCtx.createBufferSource();
+      const hF = audioCtx.createBiquadFilter();
+      const hG = audioCtx.createGain();
+      hSrc.buffer = hBuf; hSrc.connect(hF); hF.connect(hG); hG.connect(musicGain);
+      hF.type = 'bandpass'; hF.frequency.value = 6500; hF.Q.value = 0.5;
+      hG.gain.setValueAtTime(offset === 0 ? 0.09 : 0.055, ht);
+      hG.gain.exponentialRampToValueAtTime(0.001, ht + 0.08);
+      hSrc.start(ht); hSrc.stop(ht + 0.09);
+    });
+
+    // === Piano comping — chord stabs on and-of-2 and and-of-4 (Dm7 voicing) ===
+    [beat + sw, beat * 3 + sw].forEach(ctOffset => {
+      const ct = startTime + ctOffset;
+      [175, 220, 261, 294].forEach(freq => { // F3 A3 C4 D4
+        const osc = audioCtx.createOscillator();
+        const filt = audioCtx.createBiquadFilter();
+        const g = audioCtx.createGain();
+        osc.connect(filt); filt.connect(g); g.connect(musicGain);
+        osc.type = 'triangle';
+        filt.type = 'lowpass'; filt.frequency.value = 2800;
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0.075, ct);
+        g.gain.exponentialRampToValueAtTime(0.001, ct + beat * 0.28);
+        osc.start(ct); osc.stop(ct + beat * 0.32);
+      });
+    });
+
+    // === Vibraphone melody — D dorian, sparse and swinging ===
+    // D5=587 F5=698 G5=784 A5=880 C5=523
+    [
+      [0,               587, 0.09, beat * 0.82],
+      [beat + sw,        784, 0.07, beat * 0.28],
+      [beat * 1.5 + sw,  698, 0.065, beat * 0.22],
+      [beat * 2,         880, 0.085, beat * 0.65],
+      [beat * 3 + sw,    784, 0.07, beat * 0.28],
+      [beat * 3.5 + sw,  587, 0.065, beat * 0.22],
+    ].forEach(([offset, freq, vol, dur]) => {
+      const mt = startTime + offset;
       const osc = audioCtx.createOscillator();
       const g = audioCtx.createGain();
       osc.connect(g); g.connect(musicGain);
-      osc.type = 'square';
+      osc.type = 'sine';
       osc.frequency.value = freq;
-      g.gain.setValueAtTime(0, nt);
-      g.gain.linearRampToValueAtTime(0.1, nt + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.001, nt + beat * 0.4);
-      osc.start(nt); osc.stop(nt + beat * 0.5);
+      g.gain.setValueAtTime(vol, mt);
+      g.gain.exponentialRampToValueAtTime(0.001, mt + dur);
+      osc.start(mt); osc.stop(mt + dur + 0.05);
     });
 
     setTimeout(() => schedulePickerBar(startTime + bar), (bar - 0.15) * 1000);
@@ -10557,19 +10663,17 @@ function playPickerMusic() {
 function sfxReelTick(speed) {
   if (!audioCtx) return;
   const now = audioCtx.currentTime;
-  const pitch = Math.min(1400, 180 + speed * 18);
-  const vol = Math.min(0.14, 0.04 + speed * 0.003);
-  const bufLen = Math.floor(audioCtx.sampleRate * 0.012);
-  const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
-  const d = buf.getChannelData(0);
-  for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / bufLen * 6);
-  const src = audioCtx.createBufferSource();
-  const filt = audioCtx.createBiquadFilter();
+  // Sharp mechanical click: descending chirp, clearly audible
+  const osc = audioCtx.createOscillator();
   const g = audioCtx.createGain();
-  src.buffer = buf; src.connect(filt); filt.connect(g); g.connect(audioCtx.destination);
-  filt.type = 'bandpass'; filt.frequency.value = pitch; filt.Q.value = 4;
+  osc.connect(g); g.connect(audioCtx.destination);
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(Math.min(1800, 900 + speed * 20), now);
+  osc.frequency.exponentialRampToValueAtTime(300, now + 0.028);
+  const vol = Math.min(0.38, 0.12 + speed * 0.008);
   g.gain.setValueAtTime(vol, now);
-  src.start(now); src.stop(now + 0.018);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.032);
+  osc.start(now); osc.stop(now + 0.035);
 }
 
 function sfxLeverPull() {
@@ -10738,12 +10842,13 @@ function initPicker() {
 
   // Lever positioning — right of machine if space allows, else tap-to-spin mode
   const rightSpace = W - (frameX + frameW);
-  const hasLeverSpace = rightSpace >= 60;
-  const leverX = hasLeverSpace ? frameX + frameW + 38 : W / 2;
-  const leverPivotY = hasLeverSpace ? frameY + frameH * 0.68 : frameY + frameH + 55;
-  const leverLen = hasLeverSpace ? frameH * 0.42 : 44;
-  const leverUpAngle = hasLeverSpace ? -Math.PI * 0.32 : -Math.PI * 0.5;
-  const leverDownAngle = hasLeverSpace ? Math.PI * 0.22 : Math.PI * 0.15;
+  const hasLeverSpace = rightSpace >= 80;
+  const leverX = hasLeverSpace ? frameX + frameW + 48 : W / 2;
+  const leverPivotY = hasLeverSpace ? frameY + frameH * 0.45 : frameY + frameH + 55;
+  const leverLen = hasLeverSpace ? Math.min(frameH * 0.46, 170) : 44;
+  // Up = straight up (angle 0), Down = past horizontal so handle is clearly below pivot
+  const leverUpAngle = hasLeverSpace ? 0 : -Math.PI * 0.5;
+  const leverDownAngle = hasLeverSpace ? Math.PI * 0.82 : Math.PI * 0.15;
 
   pickerState = {
     canvas, ctx, W, H, n, reels,
@@ -10753,7 +10858,7 @@ function initPicker() {
     winnerIdx, winner: players[winnerIdx],
     phase: 'lever',
     startTime: null, winnerSnapped: false, raf: null,
-    lightPhase: 0, particles: [],
+    lightPhase: 0, particles: [], revealStartTime: null,
     leverAngle: leverUpAngle, leverPulled: false,
     leverAnimating: false, leverAnimStart: 0,
     willRespin, mismatchReel, mismatchIdx,
@@ -10820,7 +10925,9 @@ function pickerLoop(t) {
     s.reels.forEach(r => {
       if (r.stopped) return;
       allStopped = false;
-      r.scrollY += r.speed;
+
+      // Only advance by speed while at full spin; ease-out handles position when stopping
+      if (!r.stopping) r.scrollY += r.speed;
 
       // Tick sound: fire when a new block crosses the centre line
       const cycle = s.n * s.blockH;
@@ -10829,20 +10936,32 @@ function pickerLoop(t) {
       if (centerIdx !== r.lastCenterIdx && r.speed > 0.5) {
         r.lastCenterIdx = centerIdx;
         const now = performance.now();
-        if (now - r.lastTickTime > 70) { // throttle to ~14 ticks/sec per reel
+        if (now - r.lastTickTime > 55) { // throttle
           r.lastTickTime = now;
           sfxReelTick(r.speed);
         }
       }
 
-      if (elapsed > r.stopTime && !r.stopping) r.stopping = true;
+      if (elapsed > r.stopTime && !r.stopping) {
+        r.stopping = true;
+        r.stopStartScrollY = r.scrollY;
+        r.stopStartTime = t;
+        r.stopDuration = 1150;
+        const cycle2 = s.n * s.blockH;
+        const targetBase = r.targetIdx * s.blockH + s.blockH / 2 - s.reelH / 2;
+        // Target must be strictly forward, at least 1.5 cycles ahead
+        const minY = r.scrollY + cycle2 * 1.5;
+        const k = Math.ceil((minY - targetBase) / cycle2);
+        r.stopTargetScrollY = targetBase + k * cycle2;
+      }
       if (r.stopping) {
-        r.speed *= 0.965;
-        if (r.speed < 1.5) {
-          const cycle2 = s.n * s.blockH;
-          const targetBase = r.targetIdx * s.blockH + s.blockH / 2 - s.reelH / 2;
-          const k = Math.ceil((r.scrollY - targetBase) / cycle2);
-          r.scrollY = targetBase + k * cycle2;
+        const stopProg = Math.min(1, (t - r.stopStartTime) / r.stopDuration);
+        const ease = 1 - Math.pow(1 - stopProg, 3); // cubic ease-out
+        r.scrollY = r.stopStartScrollY + (r.stopTargetScrollY - r.stopStartScrollY) * ease;
+        // Approx px/frame speed for tick pitch scaling
+        r.speed = (r.stopTargetScrollY - r.stopStartScrollY) * 3 * Math.pow(1 - stopProg, 2) / r.stopDuration * (1000 / 60);
+        if (stopProg >= 1) {
+          r.scrollY = r.stopTargetScrollY;
           r.speed = 0; r.stopped = true; r.stoppedAt = t;
           r.bouncing = true; r.bounceStart = t;
           sfxReelStop();
@@ -10856,6 +10975,7 @@ function pickerLoop(t) {
         s.mismatchTime = t;
       } else {
         s.phase = 'revealing';
+        s.revealStartTime = t;
         sfxChaChing();
         for (let i = 0; i < 55; i++) {
           s.particles.push({
@@ -10947,6 +11067,49 @@ function drawPicker(ctx, s, t, elapsed) {
   ctx.strokeRect(frameX, frameY, frameW, frameH);
   ctx.strokeStyle = '#2a2048'; ctx.lineWidth = 2;
   ctx.strokeRect(frameX + 6, frameY + 6, frameW - 12, frameH - 12);
+
+  // Output slot — built into machine bottom (always visible)
+  {
+    const slotMX = frameX + 16;
+    const slotMW = frameW - 32;
+    const slotTopY = frameY + frameH - 26;
+    const slotOpenH = 20;
+    // Slot glow when revealing
+    if (isRevealing && s.revealStartTime) {
+      const winColor = PICKER_COLORS[s.winnerIdx % PICKER_COLORS.length];
+      const rp = Math.sin(t * 0.008) * 0.35 + 0.65;
+      ctx.shadowColor = winColor; ctx.shadowBlur = 18 * rp;
+      ctx.strokeStyle = winColor; ctx.lineWidth = 2;
+      ctx.strokeRect(slotMX - 5, slotTopY - 9, slotMW + 10, slotOpenH + 15);
+      ctx.shadowBlur = 0;
+    }
+    // Dark interior
+    ctx.fillStyle = '#040208';
+    ctx.fillRect(slotMX, slotTopY, slotMW, slotOpenH);
+    // Top lip (bevelled metal bar)
+    const lipG = ctx.createLinearGradient(0, slotTopY - 8, 0, slotTopY + 1);
+    lipG.addColorStop(0, '#5a5a6c'); lipG.addColorStop(0.55, '#7a7a8c'); lipG.addColorStop(1, '#2c2c3c');
+    ctx.fillStyle = lipG;
+    ctx.fillRect(slotMX - 5, slotTopY - 8, slotMW + 10, 9);
+    // Bottom lip
+    ctx.fillStyle = '#3a3a4c';
+    ctx.fillRect(slotMX - 5, slotTopY + slotOpenH, slotMW + 10, 6);
+    // Side guide blocks
+    [[slotMX - 5, slotTopY - 4], [slotMX + slotMW - 1, slotTopY - 4]].forEach(([sx, sy]) => {
+      ctx.fillStyle = '#505060';
+      ctx.fillRect(sx, sy, 6, slotOpenH + 8);
+    });
+    // Screw heads
+    ctx.fillStyle = '#888899';
+    [[slotMX + 10, slotTopY + slotOpenH / 2], [slotMX + slotMW - 10, slotTopY + slotOpenH / 2]].forEach(([sx, sy]) => {
+      ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2); ctx.fill();
+    });
+    // "OUTPUT" label
+    ctx.fillStyle = '#3a3a4c';
+    ctx.font = `bold 7px "Press Start 2P", monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('OUTPUT', frameX + frameW / 2, slotTopY - 10);
+  }
 
   // Title
   ctx.fillStyle = isRevealing ? '#ffcc00' : '#ddc8ff';
@@ -11103,72 +11266,175 @@ function drawPicker(ctx, s, t, elapsed) {
     ctx.fillText('ONE REEL MALFUNCTIONED — RE-SPINNING...', W / 2, reelStartY + reelH + 52);
   }
 
-  // Winner reveal — clear banner
-  if (isRevealing) {
+  // Winner reveal — card drops through output slot
+  if (isRevealing && s.revealStartTime) {
     const winColor = PICKER_COLORS[s.winnerIdx % PICKER_COLORS.length];
-    const pulse = Math.sin(t * 0.009) * 0.12 + 0.88;
-    const bannerY = reelStartY + reelH + 12;
-    const bannerH = 72;
+    const revEl = t - s.revealStartTime;
 
-    // Coloured banner
-    ctx.fillStyle = `${winColor}28`;
-    ctx.fillRect(frameX + 4, bannerY, frameW - 8, bannerH);
-    ctx.strokeStyle = winColor; ctx.lineWidth = 2;
-    ctx.strokeRect(frameX + 4, bannerY, frameW - 8, bannerH);
+    const slotMX = frameX + 16;
+    const slotMW = frameW - 32;
+    const slotTopY = frameY + frameH - 26;
+    const slotOpenH = 20;
 
-    // Label
-    ctx.fillStyle = '#aaaacc';
-    ctx.font = `bold ${Math.min(10, W * 0.013)}px monospace`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('THE WINNER IS', W / 2, bannerY + 16);
+    const cardW = slotMW - 6;
+    const cardH = 86;
+    const cardX = frameX + frameW / 2 - cardW / 2;
+    // Card final: 8px of card sits inside slot, rest hangs below machine
+    const cardFinalY = slotTopY - 8;
+    // Card start: fully hidden inside machine above the slot
+    const cardStartY = slotTopY - cardH - 2;
 
-    // Name — big and glowing
-    ctx.fillStyle   = winColor;
-    ctx.shadowColor = winColor;
-    ctx.shadowBlur  = 32 * pulse;
-    ctx.font = `bold ${Math.min(30, W * 0.038)}px "Press Start 2P", monospace`;
-    ctx.fillText(s.winner.toUpperCase(), W / 2, bannerY + 50);
-    ctx.shadowBlur = 0;
+    // Drop animation: 640ms with cubic ease-out + small bounce overshoot
+    const dropProg = Math.min(1, revEl / 640);
+    let cardY;
+    if (dropProg < 0.74) {
+      const p = dropProg / 0.74;
+      cardY = cardStartY + (cardFinalY - cardStartY) * (1 - Math.pow(1 - p, 3));
+    } else {
+      const bp = (dropProg - 0.74) / 0.26;
+      cardY = cardFinalY + 7 * Math.sin(bp * Math.PI) * (1 - bp * 0.6);
+    }
+
+    // Clip: only render card at/below the slot top opening
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(cardX - 3, slotTopY - 1, cardW + 6, cardH + 60);
+    ctx.clip();
+
+    // Card drop shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.65)';
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 4;
+
+    // Card body — player colour
+    ctx.fillStyle = winColor;
+    ctx.fillRect(cardX, cardY, cardW, cardH);
+    ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+    // Shine gradient
+    const shine = ctx.createLinearGradient(0, cardY, 0, cardY + cardH);
+    shine.addColorStop(0, 'rgba(255,255,255,0.32)');
+    shine.addColorStop(0.4, 'rgba(255,255,255,0.06)');
+    shine.addColorStop(1, 'rgba(0,0,0,0.18)');
+    ctx.fillStyle = shine;
+    ctx.fillRect(cardX, cardY, cardW, cardH);
+
+    // Card outer border
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(cardX + 1, cardY + 1, cardW - 2, cardH - 2);
+    // Card inner border
+    ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cardX + 5, cardY + 5, cardW - 10, cardH - 10);
+
+    // Card content — fades in after card mostly settles (~530ms)
+    const textA = Math.max(0, Math.min(1, (revEl - 530) / 200));
+    if (textA > 0) {
+      ctx.globalAlpha = textA;
+      // "★ WINNER ★" header
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.font = `bold ${Math.min(8, W * 0.011)}px "Press Start 2P", monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('\u2605 WINNER \u2605', frameX + frameW / 2, cardY + 19);
+      // Divider
+      ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cardX + 14, cardY + 31); ctx.lineTo(cardX + cardW - 14, cardY + 31);
+      ctx.stroke();
+      // Player name — bold, white, large
+      const displayName = s.winner.length > 13 ? s.winner.substring(0, 12) + '\u2026' : s.winner;
+      const fs = Math.min(22, W * 0.028, cardW * 0.13);
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0,0,0,0.75)';
+      ctx.shadowBlur = 7;
+      ctx.font = `bold ${fs}px "Press Start 2P", monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(displayName.toUpperCase(), frameX + frameW / 2, cardY + 61);
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+
+    // Redraw slot lips on top so card visually exits through the slot mouth
+    const lipG2 = ctx.createLinearGradient(0, slotTopY - 8, 0, slotTopY + 1);
+    lipG2.addColorStop(0, '#5a5a6c'); lipG2.addColorStop(0.55, '#7a7a8c'); lipG2.addColorStop(1, '#2c2c3c');
+    ctx.fillStyle = lipG2;
+    ctx.fillRect(slotMX - 5, slotTopY - 8, slotMW + 10, 9);
+    // Side guide caps over card edges
+    ctx.fillStyle = '#505060';
+    ctx.fillRect(slotMX - 5, slotTopY - 4, 6, slotOpenH + 6);
+    ctx.fillRect(slotMX + slotMW - 1, slotTopY - 4, 6, slotOpenH + 6);
   }
 
   ctx.textAlign = 'left';
 }
 
 function drawPickerLever(ctx, s, t) {
-  const { leverX, leverPivotY, leverLen, leverAngle, phase, hasLeverSpace } = s;
-  if (!hasLeverSpace && phase !== 'lever') return; // hide on narrow screens after pull
+  const { leverX, leverPivotY, leverLen, leverAngle, phase, hasLeverSpace, frameX, frameW } = s;
+  if (!hasLeverSpace && phase !== 'lever') return;
 
   const handleX = leverX + Math.sin(leverAngle) * leverLen;
   const handleY = leverPivotY - Math.cos(leverAngle) * leverLen;
 
-  // Pivot mount
-  ctx.fillStyle = '#2a2040'; ctx.strokeStyle = '#4a3a7a'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(leverX, leverPivotY, 10, 0, Math.PI * 2);
+  // Wall bracket: horizontal arm from machine body to pivot
+  if (hasLeverSpace) {
+    const bracketY = leverPivotY;
+    const machineEdge = frameX + frameW;
+    // Bracket body
+    ctx.fillStyle = '#2a1a3a';
+    ctx.strokeStyle = '#5a3a8a';
+    ctx.lineWidth = 2;
+    ctx.fillRect(machineEdge, bracketY - 8, leverX - machineEdge, 16);
+    ctx.strokeRect(machineEdge, bracketY - 8, leverX - machineEdge, 16);
+    // Screws on bracket
+    [machineEdge + 8, leverX - 8].forEach(sx => {
+      ctx.fillStyle = '#444'; ctx.beginPath(); ctx.arc(sx, bracketY, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#666'; ctx.lineWidth = 1; ctx.stroke();
+    });
+  }
+
+  // Pivot mount circle
+  ctx.fillStyle = '#3a2a5a'; ctx.strokeStyle = '#7a5aaa'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(leverX, leverPivotY, 12, 0, Math.PI * 2);
   ctx.fill(); ctx.stroke();
+  // Pivot centre pin
+  ctx.fillStyle = '#aaaacc';
+  ctx.beginPath(); ctx.arc(leverX, leverPivotY, 4, 0, Math.PI * 2); ctx.fill();
 
-  // Rod
-  ctx.strokeStyle = '#999aaa'; ctx.lineWidth = 7; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(leverX, leverPivotY); ctx.lineTo(handleX, handleY);
-  ctx.stroke(); ctx.lineCap = 'butt';
+  // Rod — chrome effect with highlight
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#555566'; ctx.lineWidth = 11;
+  ctx.beginPath(); ctx.moveTo(leverX, leverPivotY); ctx.lineTo(handleX, handleY); ctx.stroke();
+  ctx.strokeStyle = '#ccccdd'; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(leverX, leverPivotY); ctx.lineTo(handleX, handleY); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(leverX, leverPivotY); ctx.lineTo(handleX, handleY); ctx.stroke();
+  ctx.lineCap = 'butt';
 
-  // Ball
+  // Handle ball
   const pulled = phase !== 'lever' || s.leverPulled;
-  ctx.fillStyle   = pulled ? '#555566' : '#ff3333';
-  ctx.shadowColor = pulled ? '#333344' : '#ff1111';
-  ctx.shadowBlur  = pulled ? 4 : 22;
-  ctx.beginPath(); ctx.arc(handleX, handleY, 14, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.shadowBlur = 0;
-  ctx.beginPath(); ctx.arc(handleX - 4, handleY - 4, 5, 0, Math.PI * 2);
-  ctx.fill();
+  const ballR = 16;
+  ctx.fillStyle   = pulled ? '#445' : '#cc1111';
+  ctx.shadowColor = pulled ? 'transparent' : '#ff0000';
+  ctx.shadowBlur  = pulled ? 0 : 28;
+  ctx.beginPath(); ctx.arc(handleX, handleY, ballR, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  // Ball sheen
+  const grad = ctx.createRadialGradient(handleX - 5, handleY - 6, 2, handleX, handleY, ballR);
+  grad.addColorStop(0, pulled ? 'rgba(200,200,220,0.35)' : 'rgba(255,120,120,0.5)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(handleX, handleY, ballR, 0, Math.PI * 2); ctx.fill();
 
-  // "PULL" label
-  if (phase === 'lever' && !s.leverPulled) {
-    const pulse = Math.sin(t * 0.008) * 0.4 + 0.6;
+  // Arrow hint when waiting for pull
+  if (phase === 'lever' && !s.leverPulled && hasLeverSpace) {
+    const pulse = Math.sin(t * 0.007) * 0.4 + 0.6;
     ctx.fillStyle = `rgba(255,60,60,${pulse})`;
-    ctx.font = `bold 10px "Press Start 2P", monospace`;
+    ctx.font = `bold 11px "Press Start 2P", monospace`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('PULL', handleX, handleY + 28);
+    ctx.fillText('▼ PULL', leverX, handleY + ballR + 18);
   }
 }
 
