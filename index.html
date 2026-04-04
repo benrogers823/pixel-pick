@@ -290,15 +290,17 @@ canvas { touch-action: none; }
 .lever-stick { width: 14px; height: 44px; background: linear-gradient(90deg, #777 0%, #ccc 40%, #aaa 60%, #555 100%); border-radius: 4px 4px 2px 2px; position: relative; transform-origin: bottom center; transform: rotate(0deg); transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid #888; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
 .lever-knob { width: 24px; height: 24px; background: radial-gradient(circle at 35% 35%, #ffee66, #d4af37, #7a6020); border-radius: 50%; border: 2px solid #b89030; box-shadow: 0 0 10px rgba(212,175,55,0.8), 0 2px 4px rgba(0,0,0,0.5); position: absolute; top: -10px; left: 50%; transform: translateX(-50%); }
 .lever-base { width: 44px; height: 8px; background: linear-gradient(180deg, #555, #333); border-radius: 2px; border: 1px solid #666; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); }
-.lever-gate { width: 72px; height: 18px; border: 1px solid rgba(212,175,55,0.45); border-radius: 9px; display: flex; align-items: center; justify-content: space-between; padding: 0 7px; margin-top: 0; background: rgba(0,0,0,0.35); position: relative; }
-.lever-gate::before { content: ''; position: absolute; top: 2px; bottom: 2px; left: 50%; transform: translateX(-50%); width: 1px; background: rgba(212,175,55,0.3); }
-.lever-gate-label { font-family: 'Press Start 2P', monospace; font-size: 0.32em; color: rgba(212,175,55,0.8); line-height: 1; }
 .lever-bottom-label { font-family: 'Press Start 2P', monospace; font-size: 0.45em; color: #d4af37; margin-top: 6px; letter-spacing: 1px; text-shadow: 0 0 8px rgba(212,175,55,0.6); padding: 3px 8px; background: rgba(212,175,55,0.12); border: 1px solid rgba(212,175,55,0.3); border-radius: 4px; animation: leverPulse 2s ease-in-out infinite; }
 @keyframes leverPulse { 0%,100% { box-shadow: 0 0 5px rgba(212,175,55,0.3); } 50% { box-shadow: 0 0 15px rgba(212,175,55,0.7), 0 0 25px rgba(212,175,55,0.3); } }
 .belt-lever-wrap.left .lever-stick { transform: rotate(-10deg); }
 .belt-lever-wrap.right .lever-stick { transform: rotate(10deg); }
 .belt-lever-wrap.left.fired .lever-stick { transform: rotate(10deg); }
 .belt-lever-wrap.right.fired .lever-stick { transform: rotate(-10deg); }
+/* Belt drag hint */
+.belt-drag-hint { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-family: 'Press Start 2P', monospace; font-size: 0.35em; color: rgba(212,175,55,0.55); letter-spacing: 1px; pointer-events: none; white-space: nowrap; transition: opacity 0.5s; }
+/* Make conveyor area draggable */
+.conveyor-area { cursor: grab; }
+.conveyor-area.dragging { cursor: grabbing; }
 
 /* Extra Machinery */
 .mach-gear { position: absolute; border-radius: 50%; animation: gearSpin linear infinite; z-index: 2; }
@@ -575,10 +577,6 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
   .cd-case { width: 120px; height: 155px; }
   .cd-case .cd-icon { font-size: 2.2em; }
   .cd-case .cd-title { font-size: 0.38em; }
-  .belt-lever-wrap { bottom: 44px; }
-  .lever-mount { width: 46px; height: 56px; }
-  .lever-stick { height: 36px; }
-  .lever-gate { width: 58px; }
   .mach-gear.large { width: 34px; height: 34px; left: 34px; bottom: 60px; }
   .mach-gear.small { width: 22px; height: 22px; left: 63px; bottom: 68px; }
   .mach-gauge { right: 130px; bottom: 55px; width: 30px; height: 30px; }
@@ -616,11 +614,6 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
   .cd-case .cd-title { font-size: 0.32em; }
   .gs-title { font-size: 0.6em; margin-bottom: 6px; }
   .gs-hint { font-size: 0.35em; margin-top: 6px; }
-  .belt-lever-wrap { bottom: 40px; }
-  .lever-mount { width: 40px; height: 48px; }
-  .lever-stick { height: 30px; width: 12px; }
-  .lever-knob { width: 18px; height: 18px; }
-  .lever-gate { width: 50px; }
   .mach-gear.large { width: 28px; height: 28px; left: 28px; bottom: 56px; }
   .mach-gear.small { width: 18px; height: 18px; left: 52px; bottom: 63px; }
   .mach-gauge { display: none; }
@@ -709,6 +702,20 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 .creator-mode-active #snakeInfo,
 .creator-mode-active #shipsStatus,
 .creator-mode-active #balloonStatus { display:none !important; }
+.creator-mode-active .btn-secondary.gs-back,
+.creator-mode-active .btn-secondary.wheel-back,
+.creator-mode-active .btn-secondary.ships-back,
+.creator-mode-active .btn-secondary.marble-back,
+.creator-mode-active .btn-secondary.balloon-back,
+.creator-mode-active .btn-secondary.golf-back,
+.creator-mode-active .btn-secondary.battle-back,
+.creator-mode-active .btn-secondary.dice-back,
+.creator-mode-active .btn-secondary.namepicker-back,
+.creator-mode-active .btn-secondary.engulf-back,
+.creator-mode-active #horsesScreen .btn-secondary,
+.creator-mode-active #pickerScreen .btn-secondary,
+.creator-mode-active #virusScreen .btn-secondary,
+.creator-mode-active #snakeScreen .btn-secondary { display:none !important; }
 
 /* Keyframes shared by hook */
 @keyframes crSlideDown { 0%{transform:translateY(-60px);opacity:0;} 100%{transform:translateY(0);opacity:1;} }
@@ -897,6 +904,8 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
       </div>
       <span class="lever-bottom-label">NEXT ▶</span>
     </div>
+    <!-- drag hint -->
+    <div class="belt-drag-hint" id="beltDragHint">← drag to browse →</div>
     <!-- Extra Machinery -->
     <div class="mach-gear large"></div>
     <div class="mach-gear small"></div>
@@ -2285,6 +2294,7 @@ function getRecReason(n) {
 // ============ CD CONVEYOR BELT GAME SELECT ============
 let beltCurrentIdx = 0;
 let beltGames = []; // filtered list of available games
+let lastSelectedGameId = null; // remember last chosen CD to restore on Pick Again
 let beltAnimating = false;
 let clawAnimating = false;
 
@@ -2318,8 +2328,10 @@ function goToGameSelect() {
   // Build available games and show game select screen
   beltGames = getAvailableGames();
   if (beltGames.length === 0) beltGames = [...GAMES];
-  // Start on Computer's Choice
-  beltCurrentIdx = beltGames.findIndex(g => g.id === 'random');
+  // Restore last chosen CD, or default to Computer's Choice
+  const restoreId = lastSelectedGameId || 'random';
+  beltCurrentIdx = beltGames.findIndex(g => g.id === restoreId);
+  if (beltCurrentIdx < 0) beltCurrentIdx = beltGames.findIndex(g => g.id === 'random');
   if (beltCurrentIdx < 0) beltCurrentIdx = 0;
   clawAnimating = false;
   beltAnimating = false;
@@ -2341,7 +2353,9 @@ function goToGameSelect() {
   initBeltLever();
 }
 
+let _beltDragInit = false;
 function initBeltLever() {
+  // Levers — clone each lever element only (not the whole conveyor) to reset listeners
   function attachLever(id, dir) {
     const lever = document.getElementById(id);
     if (!lever) return;
@@ -2358,6 +2372,44 @@ function initBeltLever() {
   }
   attachLever('beltLeverLeft', -1);
   attachLever('beltLeverRight', 1);
+
+  // Drag — only attach once to avoid stacking listeners on repeated visits
+  if (_beltDragInit) return;
+  _beltDragInit = true;
+  const el = document.getElementById('conveyorArea');
+  if (!el) return;
+
+  const THRESHOLD = 40;
+  let startX = 0, dragging = false, moved = false;
+
+  function onStart(x) {
+    startX = x; dragging = true; moved = false;
+    el.classList.add('dragging');
+  }
+  function onMove(x) {
+    if (!dragging) return;
+    const delta = x - startX;
+    const steps = Math.trunc(delta / THRESHOLD);
+    if (steps !== 0) {
+      moveBelt(steps > 0 ? -1 : 1);
+      startX += steps * THRESHOLD;
+      moved = true;
+    }
+  }
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false;
+    el.classList.remove('dragging');
+    const hint = document.getElementById('beltDragHint');
+    if (hint && moved) hint.style.opacity = '0';
+  }
+
+  el.addEventListener('touchstart', e => { onStart(e.touches[0].clientX); }, { passive: true });
+  el.addEventListener('touchmove',  e => { onMove(e.touches[0].clientX); },  { passive: true });
+  el.addEventListener('touchend',   onEnd, { passive: true });
+  el.addEventListener('mousedown',  e => { onStart(e.clientX); });
+  window.addEventListener('mousemove', e => { if (dragging) onMove(e.clientX); });
+  window.addEventListener('mouseup',   onEnd);
 }
 
 function buildCDCases() {
@@ -2950,6 +3002,7 @@ function selectCDGame(gameId) {
       }
       return pool[Math.floor(Math.random() * pool.length)];
     }
+    lastSelectedGameId = gameId;
     const resolvedId = gameId === 'random' ? pickWeightedRandom(players.length) : gameId;
     enabledGames = [resolvedId];
     startGame(resolvedId);
@@ -4245,8 +4298,12 @@ function startMarbleRace() {
     const targetCamY = leadY - canvas.height * 0.4;
     // After winner detected, lock camera in place so the capture shows the finish area
     if (!marbleState.winnerSnapped) {
-      const camSmooth = creatorMode ? 0.985 : 0.95;
+      const camSmooth = creatorMode ? 0.82 : 0.95;
       cameraY += (targetCamY - cameraY) * (1 - Math.pow(camSmooth, dt));
+      // Hard clamp: leader must always be within the top 80% of the screen
+      const leaderScreenY = leadY - cameraY;
+      if (leaderScreenY < 0) cameraY = leadY;
+      if (leaderScreenY > canvas.height * 0.8) cameraY = leadY - canvas.height * 0.8;
     }
 
     // === FUTURISTIC TRACK BACKGROUND ===
@@ -8605,7 +8662,7 @@ function darkenColor(hex, factor) {
 
 // ============ SNAKE ROYALE ============
 let snakeState = null;
-const SNAKE_DURATION = 20000; // 20 seconds
+const SNAKE_DURATION = 20000; // 20 seconds (10s in creator mode — applied at init)
 
 function cleanupSnake() {
   if (snakeState && snakeState.raf) cancelAnimationFrame(snakeState.raf);
@@ -9024,7 +9081,7 @@ function startSnakeGame() {
     foods,
     phase: 'playing',
     startTime: performance.now(),
-    timeLeft: SNAKE_DURATION,
+    timeLeft: creatorMode ? 10000 : SNAKE_DURATION,
     cols: COLS,
     rows: ROWS
   };
@@ -10076,13 +10133,13 @@ function showCreatorReveal(winnerName) {
   }, 4000);
 }
 
-// ---- Override showWinner — use chosen winner if set, otherwise real game winner ----
+// ---- Override showWinner — always use the actual gameplay winner ----
 const _originalShowWinner = showWinner;
 showWinner = function(name) {
   if (creatorMode) {
     if (creatorRevealed) return;
     creatorRevealed = true;
-    const winner = creatorChosenWinner || (Array.isArray(name) ? name[0] : name);
+    const winner = Array.isArray(name) ? name[0] : name;
     if (currentGameCleanup) { currentGameCleanup(); currentGameCleanup = null; }
     showCreatorReveal(winner);
     return;
@@ -10422,11 +10479,10 @@ function virusLoop(t) {
     drawVirusHUD(ctx, s, t, elapsed); // redraw HUD with winner overlay
     setTimeout(() => {
       if (!virusState) return;
-      const displayWinner = (creatorMode && creatorChosenWinner) ? creatorChosenWinner : s.winner;
-    captureCanvasMoment('virusCanvas', displayWinner);
+    captureCanvasMoment('virusCanvas', s.winner);
       setTimeout(() => {
         if (!virusState) return;
-        const w = displayWinner;
+        const w = s.winner;
         virusState = null;
         resetGame();
         showWinner(w);
@@ -10502,8 +10558,7 @@ function drawVirusHUD(ctx, s, t, elapsed) {
 
   // Winner overlay
   if (phase === 'done' && s.winner) {
-    const displayName = (creatorMode && creatorChosenWinner) ? creatorChosenWinner : s.winner;
-    const winIdx = names.indexOf(displayName);
+    const winIdx = names.indexOf(s.winner);
     const winColor = winIdx >= 0 ? colors[winIdx] : '#ffffff';
     const pct = winIdx >= 0 ? ((counts[winIdx] / totalCells) * 100).toFixed(1) : '?';
 
@@ -10519,7 +10574,7 @@ function drawVirusHUD(ctx, s, t, elapsed) {
     ctx.shadowBlur = 35;
     ctx.fillStyle = winColor;
     ctx.font = `bold ${Math.min(44, W * 0.055)}px monospace`;
-    ctx.fillText(`\u{1F9EC} ${displayName.toUpperCase()} WINS!`, W / 2, oy + H * 0.1);
+    ctx.fillText(`\u{1F9EC} ${s.winner.toUpperCase()} WINS!`, W / 2, oy + H * 0.1);
 
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#cccccc';
