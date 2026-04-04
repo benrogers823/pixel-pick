@@ -1828,18 +1828,30 @@ function sfx(type) {
     src.start(t); src.stop(t + 0.15);
   }
   else if (type === 'hit') {
-    // Impact/explosion
-    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.3, audioCtx.sampleRate);
+    // Deep booming cannon impact — layered sub thud + low noise rumble
+    // Sub-bass thud
+    const sub = audioCtx.createOscillator();
+    const subG = audioCtx.createGain();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(80, t);
+    sub.frequency.exponentialRampToValueAtTime(28, t + 0.55);
+    subG.gain.setValueAtTime(1.4, t);
+    subG.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    sub.connect(subG); subG.connect(audioCtx.destination);
+    sub.start(t); sub.stop(t + 0.65);
+    // Low noise body
+    const bufLen = Math.floor(audioCtx.sampleRate * 0.65);
+    const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
     const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+    for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 0.5);
     const src = audioCtx.createBufferSource();
     src.buffer = buf;
     const filt = audioCtx.createBiquadFilter();
-    filt.type = 'lowpass'; filt.frequency.value = 600;
-    sfxGain.gain.setValueAtTime(0.3, t);
-    sfxGain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    filt.type = 'lowpass'; filt.frequency.value = 220;
+    sfxGain.gain.setValueAtTime(0.85, t);
+    sfxGain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
     src.connect(filt); filt.connect(sfxGain);
-    src.start(t); src.stop(t + 0.3);
+    src.start(t); src.stop(t + 0.65);
   }
   else if (type === 'consume') {
     // Engulf consume — rising gulp
@@ -3905,14 +3917,16 @@ function startCannonFiring() {
   }
   animateExplosions();
 
-  // Auto-fire on a timer (same cooldown as manual)
+  // Auto-fire on a timer (same cooldown as manual) — faster in creator mode
+  const autoFireDelay = creatorMode ? 800 : 1200;
+  const autoFireFirst = creatorMode ? 530 : 800;
   function autoFireLoop() {
     if (!shipsState || shipsState.phase !== 'firing') return;
     manualFire();
-    const tid = setTimeout(autoFireLoop, 1200);
+    const tid = setTimeout(autoFireLoop, autoFireDelay);
     if (shipsState) shipsState.timeouts.push(tid);
   }
-  const tid = setTimeout(autoFireLoop, 800);
+  const tid = setTimeout(autoFireLoop, autoFireFirst);
   s.timeouts.push(tid);
 }
 
@@ -4387,7 +4401,7 @@ function startMarbleRace() {
       halfwayLineY = leadY - canvas.height * 0.3;
       halfwayShown = true;
     }
-    if (halfwayLineY !== null) {
+    if (halfwayLineY !== null && !creatorMode) {
       const hy = halfwayLineY - cameraY;
       if (hy > -30 && hy < canvas.height + 30) {
         ctx.strokeStyle = '#ffff00'; ctx.lineWidth = 3;
@@ -6546,7 +6560,7 @@ function initBattle() {
       ctx.shadowColor = '#e94560';
       ctx.shadowBlur = 20;
       const winNames = b.winners.map(w => w.name);
-      ctx.fillText(winNames.join(', ') + (winNames.length > 1 ? ' are victorious!' : ' is victorious!'), W / 2, H * 0.25);
+      if (!creatorMode) ctx.fillText(winNames.join(', ') + (winNames.length > 1 ? ' are victorious!' : ' is victorious!'), W / 2, H * 0.25);
       ctx.shadowBlur = 0;
 
       if (t - b.doneTime > 3000) {
@@ -8251,7 +8265,7 @@ function drawHorsesScene(ctx, W, H, s, t, racing) {
   }
 
   // === HOME STRAIGHT BANNER ===
-  if (s.phase === 'homestraight' && s.homeStretchStart) {
+  if (!creatorMode && s.phase === 'homestraight' && s.homeStretchStart) {
     const homeElapsed = t - s.homeStretchStart;
     // Flash "HOME STRAIGHT!" for the first 3 seconds
     if (homeElapsed < 3000) {
@@ -9841,8 +9855,8 @@ function startCreatorCommentary(gameType) {
       _crCommTimeout = setTimeout(() => {
         el.classList.remove('cr-comm-show');
         el.classList.add('cr-comm-hide');
-        _crCommInterval = setTimeout(fireCommentary, 6000 + Math.random() * 3000);
-      }, 3000);
+        _crCommInterval = setTimeout(fireCommentary, 4000 + Math.random() * 2000);
+      }, 2500);
     });
   }
 
@@ -10346,11 +10360,15 @@ function initVirus() {
       ctx.fillRect(c * CELL + GAP, r * CELL + GAP, CELL - GAP, CELL - GAP);
     }
   }
-  // Draw starting cells
-  startPos.forEach((pos, i) => {
-    ctx.fillStyle = colors[i];
-    ctx.fillRect(pos.col * CELL + GAP, pos.row * CELL + GAP, CELL - GAP, CELL - GAP);
-  });
+  // Draw all pre-seeded cells (includes chosen winner's extra neighbours)
+  for (let ci = 0; ci < totalCells; ci++) {
+    const owner = grid[ci];
+    if (owner >= 0) {
+      const col = ci % cols, row = Math.floor(ci / cols);
+      ctx.fillStyle = colors[owner];
+      ctx.fillRect(col * CELL + GAP, row * CELL + GAP, CELL - GAP, CELL - GAP);
+    }
+  }
 
   virusState = {
     canvas, ctx, grid, cols, rows, CELL, GAP, W, H,
