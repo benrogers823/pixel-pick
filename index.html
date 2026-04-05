@@ -686,7 +686,7 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 @keyframes crDecideBlink { 0%{opacity:0.5; text-shadow:0 0 10px rgba(233,69,96,0.4);} 100%{opacity:1; text-shadow:0 0 25px rgba(233,69,96,0.9), 0 0 50px rgba(233,69,96,0.3);} }
 
 /* Running commentary overlay during gameplay */
-#crCommentary { position:fixed; bottom:44px; left:50%; transform:translateX(-50%); z-index:9999; font-family:'Press Start 2P',monospace; font-size:clamp(0.42em,2.5vw,0.65em); color:#ffe066; text-shadow:0 0 8px rgba(255,224,102,0.9); background:rgba(0,0,0,0.82); border:1px solid rgba(255,224,102,0.5); padding:8px 14px; border-radius:3px; white-space:normal; max-width:min(88vw,320px); width:max-content; text-align:center; pointer-events:none; opacity:0; transition:opacity 0.2s ease; letter-spacing:0.5px; line-height:1.5; word-break:break-word; }
+#crCommentary { position:fixed; bottom:40px; left:50%; transform:translateX(-50%); z-index:9999; font-family:'Press Start 2P',monospace; font-size:clamp(0.34em,2.2vw,0.52em); color:#ffe066; text-shadow:0 0 8px rgba(255,224,102,0.9); background:rgba(0,0,0,0.85); border:1px solid rgba(255,224,102,0.45); padding:7px 12px; border-radius:3px; white-space:normal; width:min(82vw,280px); text-align:center; pointer-events:none; opacity:0; transition:opacity 0.25s ease; letter-spacing:0.5px; line-height:1.7; word-break:break-word; overflow-wrap:break-word; }
 #crCommentary.cr-comm-show { opacity:1; }
 #crCommentary.cr-comm-hide { opacity:0; }
 /* Cursor blink for typing effect */
@@ -701,7 +701,9 @@ button, .btn, .game-check, .side-panel-toggle, .grid-cell { -webkit-tap-highligh
 .creator-mode-active #battleInfo,
 .creator-mode-active #snakeInfo,
 .creator-mode-active #shipsStatus,
-.creator-mode-active #balloonStatus { display:none !important; }
+.creator-mode-active #balloonStatus,
+.creator-mode-active #marbleScoreboard,
+.creator-mode-active #golfAssignments { display:none !important; }
 .creator-mode-active .btn-secondary.gs-back,
 .creator-mode-active .btn-secondary.wheel-back,
 .creator-mode-active .btn-secondary.ships-back,
@@ -1234,7 +1236,7 @@ function showGameIntro(gameId, onClose) {
   }, { once: true });
 }
 let lastWinningMoment = null; // data URL of the winning moment screenshot
-const SINGLE_PICK_ONLY = ['wheel', 'namepicker', 'engulf', 'horses'];
+const MULTI_PICK_GAMES = ['virus', 'marble', 'golf']; // only these support multi-winner
 const LARGE_GROUP_GAMES = ['golf', 'wheel', 'picker']; // Only these available for 17+ players
 let playerRangeHigh = false; // false = 1-16, true = 17-32
 
@@ -2316,7 +2318,7 @@ function getAvailableGames() {
   const filtered = GAMES.filter(g => {
     if (g.id === 'random') return false; // handled separately below
     if (n > 16 && !LARGE_GROUP_GAMES.includes(g.id)) return false;
-    if (picks > 1 && SINGLE_PICK_ONLY.includes(g.id)) return false;
+    if (picks > 1 && !MULTI_PICK_GAMES.includes(g.id)) return false;
     return true;
   });
   // Insert the RANDOM cd one slot to the left of marble (index 0 → random at index 0, marble at 1)
@@ -3917,9 +3919,9 @@ function startCannonFiring() {
   }
   animateExplosions();
 
-  // Auto-fire on a timer (same cooldown as manual) — faster in creator mode
-  const autoFireDelay = creatorMode ? 800 : 1200;
-  const autoFireFirst = creatorMode ? 530 : 800;
+  // Auto-fire on a timer — 0.5s in creator mode
+  const autoFireDelay = creatorMode ? 500 : 1200;
+  const autoFireFirst = creatorMode ? 300 : 800;
   function autoFireLoop() {
     if (!shipsState || shipsState.phase !== 'firing') return;
     manualFire();
@@ -3948,13 +3950,13 @@ function manualFire() {
   // Fire immediately
   fireShot();
 
-  // Cooldown
+  // Cooldown — short in creator mode so 0.5s auto-fire isn't blocked
   setTimeout(() => {
     cannonCooldown = false;
     if (shipsState && shipsState.phase === 'firing') {
       cannonGroup.classList.remove('cooldown');
     }
-  }, 1000);
+  }, creatorMode ? 350 : 1000);
 }
 
 function createCannonExplosion() {
@@ -8804,8 +8806,10 @@ function startSnakeGame() {
     const occupied = new Set();
     snakes.forEach(s => {
       if (!s.alive) return;
-      // exclude last segment of own tail (it'll vacate)
-      const limit = s === snake ? s.body.length - 1 : s.body.length;
+      // When growing, tail doesn't vacate — must treat whole body as occupied
+      const limit = s === snake
+        ? (s.growing > 0 ? s.body.length : s.body.length - 1)
+        : s.body.length;
       for (let i = 0; i < limit; i++) occupied.add(`${s.body[i].x},${s.body[i].y}`);
     });
 
@@ -9116,7 +9120,8 @@ function startSnakeGame() {
       }
 
       // Timer
-      s.timeLeft = Math.max(0, SNAKE_DURATION - (now - s.startTime));
+      const snakeTotalDur = creatorMode ? 10000 : SNAKE_DURATION;
+      s.timeLeft = Math.max(0, snakeTotalDur - (now - s.startTime));
       const secs = Math.ceil(s.timeLeft / 1000);
       if (hudEl) {
         hudEl.textContent = secs;
