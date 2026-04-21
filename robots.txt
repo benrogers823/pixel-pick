@@ -1,0 +1,5 @@
+# Pixel Pick — https://www.pixel-pick.com
+User-agent: *
+Allow: /
+
+Sitemap: https://www.pixel-pick.com/sitemap.xml
