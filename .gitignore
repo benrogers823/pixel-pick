@@ -1,0 +1,24 @@
+﻿# AI session data
+.claude/
+
+# UK crime analysis data (not part of this project)
+data/
+
+# Old prototypes / experiments
+marble_race.html
+player-selector-games.html
+marble-race-app/
+FINAL_CHANGES.md
+
+# Unused favicon design variants
+favicon1.svg
+favicon2.svg
+favicon3.svg
+favicon4.svg
+favicon5.svg
+faviconA.svg
+faviconB.svg
+faviconC.svg
+faviconD.svg
+faviconE.svg
+faviconF.svg

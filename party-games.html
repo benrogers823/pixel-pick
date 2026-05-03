@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fun Party Decision Maker Games | Pixel Pick</title>
+<meta name="description" content="Who buys the next round? Let retro arcade games decide! Marble races, wheel spinners, battle royales and more. Free fun decision maker for friends and parties.">
+<meta name="keywords" content="party decision maker, fun group games, who pays game, friends decision game, settle debate game, party picker, who goes first game">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0a0a1a">
+<link rel="canonical" href="https://www.pixel-pick.com/party-games">
+<meta property="og:title" content="Fun Party Decision Maker | Pixel Pick">
+<meta property="og:description" content="Marble races, wheel spinners, battle royales — let retro games settle any argument. Free and instant.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.pixel-pick.com/party-games">
+<meta property="og:image" content="https://www.pixel-pick.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="Pixel Pick">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fun Party Decision Maker | Pixel Pick">
+<meta name="twitter:description" content="Marble races, wheel spinners, battle royales — let retro games settle any argument. Free and instant.">
+<meta name="twitter:image" content="https://www.pixel-pick.com/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Fun Party Decision Maker Games | Pixel Pick",
+  "url": "https://www.pixel-pick.com/party-games",
+  "description": "Who buys the next round? Let retro arcade games decide! Free fun decision maker for friends and parties.",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "Pixel Pick",
+    "url": "https://www.pixel-pick.com"
+  }
+}
+</script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #0a0a1a;
+  color: #ccc;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ── Nav ── */
+nav {
+  background: rgba(10, 10, 26, 0.97);
+  border-bottom: 1px solid rgba(0, 255, 204, 0.2);
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-logo {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.5em, 2vw, 0.75em);
+  color: #00ffcc;
+  text-decoration: none;
+  letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+  transition: text-shadow 0.2s;
+}
+.nav-logo:hover { text-shadow: 0 0 18px rgba(0, 255, 204, 0.9); }
+
+.nav-cta {
+  background: linear-gradient(180deg, #f5a623, #e67e22);
+  color: #1a1a2e;
+  font-family: 'Press Start 2P', monospace;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  font-size: clamp(0.45em, 1.2vw, 0.65em);
+  letter-spacing: 1px;
+  border-radius: 3px;
+  box-shadow: 0 4px 20px rgba(245, 166, 35, 0.5);
+  text-decoration: none;
+  display: inline-block;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.nav-cta:hover { transform: scale(1.05); box-shadow: 0 6px 28px rgba(245, 166, 35, 0.75); }
+
+/* ── Hero ── */
+.hero {
+  text-align: center;
+  padding: 80px 20px 60px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 700px; height: 350px;
+  background: radial-gradient(ellipse, rgba(255, 47, 160, 0.09) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-headline {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(1.4em, 5vw, 2.8em);
+  color: #ff2fa0;
+  text-shadow: 0 0 20px rgba(255, 47, 160, 0.7), 0 0 40px rgba(255, 47, 160, 0.3);
+  line-height: 1.4;
+  margin-bottom: 24px;
+  letter-spacing: 2px;
+  position: relative;
+}
+
+.hero-sub {
+  font-size: clamp(1em, 2.5vw, 1.25em);
+  color: #aaa;
+  margin-bottom: 40px;
+  max-width: 580px;
+  margin-left: auto;
+  margin-right: auto;
+  position: relative;
+}
+
+.cta-btn {
+  background: linear-gradient(180deg, #f5a623, #e67e22);
+  color: #1a1a2e;
+  font-family: 'Press Start 2P', monospace;
+  padding: 16px 36px;
+  border: none;
+  cursor: pointer;
+  font-size: clamp(0.55em, 1.5vw, 0.75em);
+  letter-spacing: 1px;
+  border-radius: 3px;
+  box-shadow: 0 4px 20px rgba(245, 166, 35, 0.5);
+  text-decoration: none;
+  display: inline-block;
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: relative;
+}
+.cta-btn:hover { transform: translateY(-3px) scale(1.04); box-shadow: 0 8px 32px rgba(245, 166, 35, 0.75); }
+
+/* ── Sections ── */
+section { padding: 60px 20px; max-width: 960px; margin: 0 auto; }
+
+.section-heading {
+  font-family: 'Press Start 2P', monospace;
+  color: #f5a623;
+  font-size: clamp(0.75em, 2.2vw, 1.1em);
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.section-rule {
+  height: 1px;
+  background: rgba(0, 255, 204, 0.2);
+  border: none;
+  margin: 0 auto 40px;
+  max-width: 400px;
+}
+
+/* ── Use-case grid ── */
+.use-cases-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.use-card {
+  background: rgba(0, 255, 204, 0.05);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  border-radius: 4px;
+  padding: 20px;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.use-card:hover {
+  border-color: rgba(0, 255, 204, 0.5);
+  background: rgba(0, 255, 204, 0.09);
+  transform: translateY(-3px);
+}
+
+.use-card-icon { font-size: 2em; margin-bottom: 12px; display: block; }
+
+.use-card-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.45em, 1.2vw, 0.6em);
+  color: #00ffcc;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.use-card-desc {
+  font-size: 0.85em;
+  color: #999;
+  line-height: 1.5;
+}
+
+/* ── Why section ── */
+.why-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px;
+}
+
+.why-card {
+  background: rgba(255, 47, 160, 0.05);
+  border: 1px solid rgba(255, 47, 160, 0.2);
+  border-radius: 4px;
+  padding: 28px 20px;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.why-card:hover {
+  border-color: rgba(255, 47, 160, 0.45);
+  background: rgba(255, 47, 160, 0.1);
+  transform: translateY(-3px);
+}
+
+.why-card-icon { font-size: 2.2em; margin-bottom: 14px; display: block; }
+
+.why-card-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.5em, 1.4vw, 0.65em);
+  color: #ff2fa0;
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+.why-card-desc {
+  font-size: 0.85em;
+  color: #999;
+  line-height: 1.5;
+}
+
+/* ── Games Showcase ── */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.game-card {
+  background: rgba(245, 166, 35, 0.05);
+  border: 1px solid rgba(245, 166, 35, 0.2);
+  border-radius: 4px;
+  padding: 20px;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.game-card:hover {
+  border-color: rgba(245, 166, 35, 0.5);
+  background: rgba(245, 166, 35, 0.1);
+  transform: translateY(-3px);
+}
+
+.game-card-icon { font-size: 2em; margin-bottom: 10px; display: block; }
+
+.game-card-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.45em, 1.2vw, 0.6em);
+  color: #f5a623;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.game-card-desc {
+  font-size: 0.82em;
+  color: #999;
+  line-height: 1.5;
+}
+
+/* ── Second CTA band ── */
+.cta-band {
+  background: rgba(255, 47, 160, 0.04);
+  border-top: 1px solid rgba(255, 47, 160, 0.15);
+  border-bottom: 1px solid rgba(255, 47, 160, 0.15);
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.cta-band-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.65em, 2vw, 0.9em);
+  color: #fff;
+  margin-bottom: 28px;
+  line-height: 1.8;
+  letter-spacing: 1px;
+}
+
+/* ── Footer ── */
+footer {
+  border-top: 1px solid rgba(0, 255, 204, 0.12);
+  padding: 24px;
+  text-align: center;
+  font-size: 0.75em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+footer a {
+  color: rgba(0, 255, 204, 0.5);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+footer a:hover { color: #00ffcc; }
+
+/* ── Responsive tweaks ── */
+@media (max-width: 480px) {
+  nav { padding: 10px 16px; }
+  .hero { padding: 60px 16px 40px; }
+  section { padding: 40px 16px; }
+  .cta-band { padding: 40px 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav>
+  <a href="/" class="nav-logo">← PIXEL PICK</a>
+  <a href="/" class="nav-cta">PLAY NOW →</a>
+</nav>
+
+<!-- Hero -->
+<header class="hero">
+  <h1 class="hero-headline">SETTLE IT WITH<br>RETRO GAMES</h1>
+  <p class="hero-sub">Who pays? Who picks the movie? Let the arcade decide.</p>
+  <a href="/" class="cta-btn">🕹️ START PLAYING →</a>
+</header>
+
+<!-- Use-case grid -->
+<section aria-labelledby="use-cases-heading">
+  <h2 class="section-heading" id="use-cases-heading">EVERY PARTY DILEMMA, SOLVED</h2>
+  <hr class="section-rule">
+  <div class="use-cases-grid">
+    <div class="use-card">
+      <span class="use-card-icon">🍺</span>
+      <div class="use-card-title">Who Buys the Next Round</div>
+      <p class="use-card-desc">No more rock-paper-scissors — let a marble race settle the bar tab.</p>
+    </div>
+    <div class="use-card">
+      <span class="use-card-icon">🎲</span>
+      <div class="use-card-title">Pick Teams for Game Night</div>
+      <p class="use-card-desc">Split your friends into random teams for trivia, video games, or whatever chaos is planned.</p>
+    </div>
+    <div class="use-card">
+      <span class="use-card-icon">🎬</span>
+      <div class="use-card-title">Choose the Movie</div>
+      <p class="use-card-desc">Everyone nominates a film, the wheel decides — no more hour-long scroll sessions.</p>
+    </div>
+    <div class="use-card">
+      <span class="use-card-icon">🤜</span>
+      <div class="use-card-title">Settle a Friendly Debate</div>
+      <p class="use-card-desc">Can't agree? Put both options in, hit play, and accept the pixel verdict.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Why Pixel Pick -->
+<section aria-labelledby="why-heading" style="background: rgba(255,47,160,0.02); border-radius: 8px; max-width: 100%; padding: 60px 20px;">
+  <div style="max-width: 960px; margin: 0 auto;">
+    <h2 class="section-heading" id="why-heading">WHY USE PIXEL PICK?</h2>
+    <hr class="section-rule">
+    <div class="why-grid">
+      <div class="why-card">
+        <span class="why-card-icon">🕊️</span>
+        <div class="why-card-title">No Arguments</div>
+        <p class="why-card-desc">The game is provably random. Nobody can claim favouritism when a marble race made the call.</p>
+      </div>
+      <div class="why-card">
+        <span class="why-card-icon">💥</span>
+        <div class="why-card-title">Pure Chaos</div>
+        <p class="why-card-desc">Battle royales, snake duels, pixel viruses — every decision becomes a spectator sport.</p>
+      </div>
+      <div class="why-card">
+        <span class="why-card-icon">⚡</span>
+        <div class="why-card-title">Instant &amp; Free</div>
+        <p class="why-card-desc">No download, no account, no cost. Open the link, type your names, play instantly on any device.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Games showcase -->
+<section aria-labelledby="games-heading">
+  <h2 class="section-heading" id="games-heading">PARTY-READY GAMES</h2>
+  <hr class="section-rule">
+  <div class="games-grid">
+    <div class="game-card">
+      <span class="game-card-icon">⚔️</span>
+      <div class="game-card-title">Battle Royale</div>
+      <p class="game-card-desc">Everyone fights — last pixel standing wins. Brutal, fast, and completely random.</p>
+    </div>
+    <div class="game-card">
+      <span class="game-card-icon">🔮</span>
+      <div class="game-card-title">Marble Race</div>
+      <p class="game-card-desc">Pick your marble and cheer it down the track. The pub's favourite way to settle anything.</p>
+    </div>
+    <div class="game-card">
+      <span class="game-card-icon">🎡</span>
+      <div class="game-card-title">Spinning Wheel</div>
+      <p class="game-card-desc">The classic — everyone watches the wheel slow down and land on one unlucky name.</p>
+    </div>
+    <div class="game-card">
+      <span class="game-card-icon">🐍</span>
+      <div class="game-card-title">Snake Royale</div>
+      <p class="game-card-desc">Snakes devour each other until only one remains — tense, unpredictable, unmissable.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Second CTA -->
+<div class="cta-band">
+  <p class="cta-band-text">Make every decision an event →</p>
+  <a href="/" class="cta-btn">🕹️ PLAY FREE NOW →</a>
+</div>
+
+<!-- Footer -->
+<footer>
+  <p>&copy; 2025 <a href="https://www.pixel-pick.com">Pixel Pick</a> — Free retro arcade decision maker. No download, no sign-up.</p>
+</footer>
+
+</body>
+</html>
