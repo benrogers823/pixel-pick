@@ -3645,21 +3645,31 @@ const GAMES = [
 ];
 
 // ============ GAME UNLOCK SYSTEM ============
-// Belt order thresholds: marble is free; each subsequent game unlocks after N completed games.
+// Belt order thresholds — marble & wheel free, then gaps widen the further along:
+// ships(5) → excaliber(+7=12) → battle(+9=21) → engulf(+12=33)
+// → virus(+15=48) → snake(+18=66) → picker(+22=88) → horses(+32=120, hidden bonus)
 const GAME_UNLOCK_THRESHOLDS = {
   marble:    0,
   wheel:     0,
-  ships:     10,
-  excaliber: 15,
-  battle:    20,
-  engulf:    30,
-  virus:     40,
-  snake:     50,
-  horses:    60,
-  picker:    70,
+  ships:     5,
+  excaliber: 12,
+  battle:    21,
+  engulf:    33,
+  virus:     48,
+  snake:     66,
+  picker:    88,
+  horses:    120,
 };
 const _PP_DONE_KEY   = 'ppGamesCompleted';
 const _PP_SEEN_KEY   = 'ppSeenUnlocks';
+
+// Hidden dev/test flag — set via ?pp=unlock in the URL
+let _PP_UNLOCK_ALL = false;
+(function _initUnlockOverride() {
+  if (new URLSearchParams(window.location.search).get('pp') === 'unlock') {
+    _PP_UNLOCK_ALL = true;
+  }
+})();
 
 function ppGetCompleted()  { return parseInt(localStorage.getItem(_PP_DONE_KEY)  || '0'); }
 function ppSetCompleted(n) { localStorage.setItem(_PP_DONE_KEY, String(n)); }
@@ -3672,6 +3682,7 @@ function ppMarkSeenUnlock(id) {
   localStorage.setItem(_PP_SEEN_KEY, JSON.stringify([...s]));
 }
 function isGameUnlocked(gameId) {
+  if (_PP_UNLOCK_ALL) return true;
   const t = GAME_UNLOCK_THRESHOLDS[gameId];
   if (t === undefined || t === 0) return true;
   return ppGetCompleted() >= t;
@@ -3703,6 +3714,7 @@ function closeLockBlock() {
 }
 
 function checkAndShowNewUnlocks(callback) {
+  if (_PP_UNLOCK_ALL) { if (callback) callback(); return; } // dev mode — skip all unlock popups
   const seen  = ppGetSeenUnlocks();
   const total = ppGetCompleted();
   const BELT_ORDER = ['wheel','marble','ships','excaliber','battle','engulf','virus','snake','picker'];
