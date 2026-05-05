@@ -12176,7 +12176,11 @@ function horsesLoop(t) {
     // Move horses
     s.horses.forEach(h => {
       if (!h.alive) return;
-      if (!h.jumping) {
+      // Always carry forward momentum — even mid-jump (a real horse keeps moving over a fence).
+      // During jump: 70% of normal pace, with a small forward floor so it never stalls or drifts back.
+      if (h.jumping) {
+        h.x += Math.max(0.32, h.baseSpeedOffset * 0.105);
+      } else {
         h.x += h.baseSpeedOffset * 0.15;
       }
       // Sprint logic
@@ -12335,7 +12339,8 @@ function horsesLoop(t) {
     s.horses.forEach(h => {
       if (!h.alive) return;
       if (h.jumping) {
-        h.jumpProgress += 0.04;
+        // Slower jumpProgress (~0.65s) — gives a more substantial, realistic jump
+        h.jumpProgress += 0.0255;
         if (h.jumpProgress >= 1) {
           h.jumping = false;
           h.jumpProgress = 0;
@@ -12348,9 +12353,12 @@ function horsesLoop(t) {
             sfx('crash');
             sfx('neigh');
           } else if (h.jumpResult === 1) {
-            h.x += 15 + Math.random() * 15; // great jump — move ahead
+            // Great jump — apply a smooth forward IMPULSE that decays via glide,
+            // never a teleport. ~1.4 + decay * 60 frames ≈ 17px total drift over ~1s.
+            h.glideVx += 1.4 + Math.random() * 0.8;
           } else if (h.jumpResult === -1) {
-            h.x -= 8 + Math.random() * 8; // poor jump — fall back
+            // Poor jump — gentle backward drift instead of a snap-back teleport.
+            h.glideVx -= 0.7 + Math.random() * 0.5;
           }
           h.jumpResult = 0;
         }
@@ -12362,15 +12370,26 @@ function horsesLoop(t) {
 
     // === HOME STRAIGHT LOGIC ===
     if (s.phase === 'homestraight') {
-      // Sprint to the finish — faster than racing, accelerates over 3s
-      const homeElapsed = s.homeStretchStart ? Math.min(1, (now - s.homeStretchStart) / 3000) : 0;
-      const homeMult = 1.7 + homeElapsed * 0.9; // 1.7× → 2.6× base scrollSpeed
+      // Three-phase scroll profile across ~10s of home straight to build tension:
+      //   0–3s   ramp 1.7× → 2.6× (charge after final fence)
+      //   3–7s   hold at 2.6× (full drive to the line)
+      //   7–10s+ ease 2.6× → 2.05× (photo-finish slow-mo as horses arrive)
+      const elapsedHs = s.homeStretchStart ? (now - s.homeStretchStart) : 0;
+      let homeMult;
+      if (elapsedHs < 3000) {
+        homeMult = 1.7 + (elapsedHs / 3000) * 0.9;
+      } else if (elapsedHs < 7000) {
+        homeMult = 2.6;
+      } else {
+        const t3 = Math.min(1, (elapsedHs - 7000) / 3000);
+        homeMult = 2.6 - t3 * 0.55;
+      }
       s.scrollX += s.scrollSpeed * homeMult;
     }
 
-    // Place finish line — home straight now lasts 6s (was 3s) so the final push breathes longer.
-    // Speed ramp still completes in the first 3s (see above), then horses hold at 2.6× for ~3 extra seconds.
-    const homeStretchReady = !s.homeStretchStart || (now - s.homeStretchStart > (creatorMode ? 300 : 6000));
+    // Place finish line — home straight now lasts ~10s (was 6s) for a longer, tenser final run.
+    // Speed ramp completes in the first 3s, then holds, then eases off into a photo-finish feel.
+    const homeStretchReady = !s.homeStretchStart || (now - s.homeStretchStart > (creatorMode ? 300 : 10000));
     if (s.scrollX > s.totalDistance && !s.finishPlaced && homeStretchReady) {
       s.finishX = s.scrollX + W + 50;
       s.finishPlaced = true;
@@ -12619,9 +12638,51 @@ function drawHorsesScene(ctx, W, H, s, t, racing) {
     ctx.fillRect(x, trackBot, 15, H - trackBot);
   }
 
-  // === HOME STRAIGHT BANNER ===
+  // === HOME STRAIGHT BANNER + TENSION CUES ===
   if (!creatorMode && s.phase === 'homestraight' && s.homeStretchStart) {
     const homeElapsed = t - s.homeStretchStart;
+
+    // Escalating tension cue at the top of the track once the intro flash fades.
+    // Picks the most dramatic label the current race state qualifies for.
+    if (homeElapsed > 2800) {
+      let cue = null;
+      if (s.finishPlaced) {
+        const aliveH = s.horses.filter(h => h.alive);
+        const lead = aliveH.length ? Math.max(...aliveH.map(h => h.x)) : 0;
+        const finishScreenX = s.finishX - s.scrollX;
+        const distPx = finishScreenX - lead;
+        if      (distPx <  90) cue = '🏁 PHOTO FINISH! 🏁';
+        else if (distPx < 230) cue = 'TO THE LINE!';
+        else if (distPx < 430) cue = 'FINAL STRIDES!';
+        else                   cue = 'FINAL FURLONG!';
+      } else if (homeElapsed > 5500) {
+        cue = 'FINAL FURLONG!';
+      } else {
+        cue = 'INTO THE STRAIGHT!';
+      }
+      if (cue) {
+        const cuePulse = 1 + Math.sin(t * 0.012) * 0.07;
+        const fadeIn   = Math.min(1, (homeElapsed - 2800) / 400);
+        ctx.save();
+        ctx.globalAlpha = fadeIn;
+        const cueH = 34;
+        const cueY = (s.trackTop || H * 0.25) + 18;
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.fillRect(0, cueY - cueH / 2, W, cueH);
+        ctx.fillStyle = '#ffd24a';
+        ctx.font = `bold ${Math.min(22, W * 0.032)}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.85)';
+        ctx.shadowBlur = 4;
+        ctx.translate(W / 2, cueY);
+        ctx.scale(cuePulse, cuePulse);
+        ctx.fillText(cue, 0, 0);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+    }
+
     // Flash "HOME STRAIGHT!" for the first 3 seconds
     if (homeElapsed < 3000) {
       const flashAlpha = Math.min(1, homeElapsed / 300) * (homeElapsed < 2500 ? 1 : Math.max(0, 1 - (homeElapsed - 2500) / 500));
@@ -12709,10 +12770,16 @@ function drawHorseSprite(ctx, h, t, s, racing) {
   const baseX = h.x;
   const baseY = h.y;
 
-  // Jump arc
+  // Jump arc — parabolic, peaking at midpoint, taller and slightly held at apex
+  // for a more realistic "soaring over the fence" feel. Uses (1-(2p-1)^2) shape.
   let jumpOffY = 0;
+  let jumpLean = 0;
   if (h.jumping) {
-    jumpOffY = -Math.sin(h.jumpProgress * Math.PI) * 35 * sc;
+    const p = h.jumpProgress;
+    const arc = 1 - (2 * p - 1) * (2 * p - 1); // 0 → 1 → 0, peak held longer than sin
+    jumpOffY = -arc * 46 * sc;
+    // Subtle body rotation: nose-up on takeoff, level at apex, nose-down on landing
+    jumpLean = (p - 0.5) * 0.18;
   }
 
   // Fall animation
@@ -12753,6 +12820,8 @@ function drawHorseSprite(ctx, h, t, s, racing) {
 
   ctx.save();
   ctx.translate(drawX, drawY + bodyBob);
+  // Subtle body lean during jump: nose-up on takeoff, nose-down on landing
+  if (jumpLean !== 0) ctx.rotate(jumpLean);
 
   // --- HORSE BODY ---
   const bodyW = 50 * sc, bodyH = 22 * sc;
