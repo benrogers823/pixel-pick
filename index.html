@@ -11127,11 +11127,16 @@ function initBattle() {
       const winNames = b.winners.map(w => w.name);
 
       if (t - b.doneTime > (creatorMode ? 500 : 3000)) {
-        // Centre on the winner(s) so a single survivor at the edge of a wide
-        // desktop canvas doesn't get cropped off when object-fit:cover trims
-        // the sides. groundY ≈ 0.72H, characters stand on it.
-        const cx = b.winners.reduce((sum, w) => sum + (w.x || 0), 0) / Math.max(1, b.winners.length);
-        const cy = groundY - 30; // just above ground so character bodies are centred
+        // Centre the polaroid on the winner's actual rendered position. After
+        // the 1v1 duel the winner floats at ~0.5H (jumpY lifts them off the
+        // ground); in multi-winner finishes they stay on groundY (~0.72H).
+        // Using c.y - c.jumpY captures both cases correctly on mobile + desktop.
+        const ws = b.winners;
+        const n = Math.max(1, ws.length);
+        const cx = ws.reduce((sum, w) => sum + (w.x || 0), 0) / n;
+        const screenY = ws.reduce((sum, w) => sum + ((w.y || groundY) - (w.jumpY || 0)), 0) / n;
+        // Bias slightly above feet so head + body sit centred in the polaroid
+        const cy = screenY - 18;
         const zoom = W < 500 ? 0.95 : 0.55;
         captureCanvasMoment('battleCanvas', winNames.join(', '), undefined, { x: cx, y: cy, zoom });
         resetGame();
