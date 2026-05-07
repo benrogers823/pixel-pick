@@ -6093,35 +6093,56 @@ function captureWheelMoment(winnerName) {
     const src = document.getElementById('wheelCanvas');
     if (!src) return;
     const tc = document.createElement('canvas');
-    const w = 400, h = 300;
+    // Polaroid expects 1.5625:1 landscape. Output 500x320 matches exactly so
+    // the image scales 1:1 without object-fit:cover cropping. Previous 400x300
+    // (1.333) stretched the wheel into an oval and lost the banner to cover.
+    const w = 500, h = 320;
     tc.width = w; tc.height = h;
     const ctx = tc.getContext('2d');
-    // Zoom into the right side where the pointer points (proportional crop)
+
+    // Background — soft radial gradient matching the wheel screen mood, fills
+    // the side strips left over once the square wheel is laid out.
+    const bg = ctx.createRadialGradient(w / 2, h / 2, 50, w / 2, h / 2, 360);
+    bg.addColorStop(0, '#252145');
+    bg.addColorStop(1, '#0a0a1e');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    // Draw the FULL wheel as a square below the banner. Shifted slightly left
+    // to leave room for the pointer arrow on the right.
     const S = src.width;
-    ctx.drawImage(src, S * 0.25, S * 0.125, S * 0.75, S * 0.75, 0, 0, w, h);
-    // Draw pointer triangle on right edge
+    const bannerH = 32;
+    const wheelSize = h - bannerH - 8;          // 280 — fits below banner with 8px breathing room
+    const wheelX = (w - wheelSize) / 2 - 22;    // bias left so pointer fits on the right
+    const wheelY = bannerH + 4;
+    ctx.drawImage(src, 0, 0, S, S, wheelX, wheelY, wheelSize, wheelSize);
+
+    // Pointer — triangle pointing INTO the right edge of the wheel, indicating winner
+    const tipX  = wheelX + wheelSize + 4;
+    const cyArr = wheelY + wheelSize / 2;
     ctx.fillStyle = '#d4af37';
     ctx.beginPath();
-    ctx.moveTo(w, h / 2 - 22);
-    ctx.lineTo(w, h / 2 + 22);
-    ctx.lineTo(w - 38, h / 2);
+    ctx.moveTo(tipX + 38, cyArr - 24);
+    ctx.lineTo(tipX + 38, cyArr + 24);
+    ctx.lineTo(tipX,       cyArr);
     ctx.closePath();
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowColor = 'rgba(0,0,0,0.55)';
     ctx.shadowBlur = 6;
-    ctx.shadowOffsetX = -2;
+    ctx.shadowOffsetX = 1;
     ctx.fill();
     ctx.shadowBlur = 0; ctx.shadowOffsetX = 0;
     ctx.strokeStyle = '#b8860b';
     ctx.lineWidth = 2;
     ctx.stroke();
-    // Winner banner
-    ctx.fillStyle = 'rgba(0,0,0,0.65)';
-    ctx.fillRect(0, 0, w, 30);
+
+    // Winner banner across the full width
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, w, bannerH);
     ctx.fillStyle = '#ffd700';
     ctx.font = 'bold 16px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('\u{1F3C6} ' + winnerName + ' wins!', w / 2, 15);
+    ctx.fillText('\u{1F3C6} ' + winnerName + ' wins!', w / 2, bannerH / 2);
     lastWinningMoment = tc.toDataURL('image/png');
   } catch(e) { lastWinningMoment = null; }
 }
@@ -9856,7 +9877,14 @@ function startMarbleRace() {
         marbleState.captured = true;
         marbleState.capturePending = false;
         const picked = marbleState.pickedNames;
-        captureCanvasMoment('marbleCanvas', picked.join(', '));
+        // Focus on winner's exact canvas position so the polaroid is centred
+        // on the winning marble + finish line + sun bloom, not on the upper
+        // empty track that the default cropHint of 0.42 gave us.
+        const winnerCanvasY = winners[0].y - cameraY;
+        const winnerCanvasX = winners[0].x;
+        const zoom = canvas.width < 500 ? 0.95 : 0.55;
+        captureCanvasMoment('marbleCanvas', picked.join(', '), undefined,
+          { x: winnerCanvasX, y: winnerCanvasY, zoom });
         // For team mode pass first-place name; showWinner will read marbleFinishOrderForTeams
         const showArg = _isTeamMode ? picked[0] : (picked.length === 1 ? picked[0] : picked);
         // Don't return — let the loop run so the post-finish sun animates during the 2s delay
@@ -10780,7 +10808,13 @@ function initBattle() {
       const winNames = b.winners.map(w => w.name);
 
       if (t - b.doneTime > (creatorMode ? 500 : 3000)) {
-        captureCanvasMoment('battleCanvas', winNames.join(', '), 0.68);
+        // Centre on the winner(s) so a single survivor at the edge of a wide
+        // desktop canvas doesn't get cropped off when object-fit:cover trims
+        // the sides. groundY ≈ 0.72H, characters stand on it.
+        const cx = b.winners.reduce((sum, w) => sum + (w.x || 0), 0) / Math.max(1, b.winners.length);
+        const cy = groundY - 30; // just above ground so character bodies are centred
+        const zoom = W < 500 ? 0.95 : 0.55;
+        captureCanvasMoment('battleCanvas', winNames.join(', '), undefined, { x: cx, y: cy, zoom });
         resetGame();
         showWinner(winNames.length === 1 ? winNames[0] : winNames);
         return;
@@ -11067,7 +11101,11 @@ function diceLoop(t) {
             s.phase = 'done';
             document.getElementById('diceStatus').innerHTML =
               `<span style="color:${COLORS[winnerIdx]}">${players[winnerIdx]}</span> wins with ${maxScore}!`;
-            captureCanvasMoment('diceCanvas', players[winnerIdx]);
+            // Focus polaroid on the centroid of all 3 dice — they settle in
+            // physics-driven random spots so default cropHint could miss them.
+            const dx = s.dice.reduce((sum, d) => sum + d.x, 0) / s.dice.length;
+            const dy = s.dice.reduce((sum, d) => sum + d.y, 0) / s.dice.length;
+            captureCanvasMoment('diceCanvas', players[winnerIdx], undefined, { x: dx, y: dy, zoom: 0.7 });
             setTimeout(() => { resetGame(); showWinner(players[winnerIdx]); }, 2500);
           } else {
             // Tiebreaker round
@@ -11324,7 +11362,11 @@ function namePickerLoop(t) {
       const winner = s.placedNames[s.winnerIdx];
       document.getElementById('namePickerStatus').innerHTML =
         `<span style="color:${winner.color}">${winner.name}</span> picked!`;
-      captureCanvasMoment('namePickerCanvas', winner.name);
+      // Focus on winner's clicked position (could be anywhere on canvas).
+      // Default cropHint of 0.42 missed bottom-placed winners entirely.
+      const cv = document.getElementById('namePickerCanvas');
+      const zoom = cv.width < 500 ? 0.95 : 0.55;
+      captureCanvasMoment('namePickerCanvas', winner.name, undefined, { x: winner.x, y: winner.y, zoom });
       setTimeout(() => { resetGame(); showWinner(winner.name); }, 3000);
     }
   }
@@ -15851,7 +15893,14 @@ function pickerLoop(t) {
     s.winnerSnapped = true;
     setTimeout(() => {
       if (!pickerState) return;
-      captureCanvasMoment('pickerCanvas', s.winner);
+      // Frame the polaroid on the slot machine itself. The frame is centred
+      // on the canvas (frameY + frameH/2 ≈ 0.5H) so a focusPoint there gives
+      // a cleaner shot than the default cropHint of 0.42 which clipped the
+      // bottom of the machine + the slot opening on tall portrait canvases.
+      const focusX = s.frameX + s.frameW / 2;
+      const focusY = s.frameY + s.frameH / 2;
+      const zoom = s.W < 500 ? 0.95 : 0.6;
+      captureCanvasMoment('pickerCanvas', s.winner, undefined, { x: focusX, y: focusY, zoom });
       setTimeout(() => {
         if (!pickerState) return;
         stopMusic();
