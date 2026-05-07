@@ -5933,27 +5933,45 @@ function captureShipsMoment(winnerNames) {
     if (!s) return;
     const tc = document.createElement('canvas');
     const gs = s.gridSize || 4;
-    const size = 400, pad = 20, cellSize = (size - pad * 2) / gs, gap = 4;
-    tc.width = size; tc.height = size + 40;
+    // Polaroid expects ~1.5625:1 landscape (250×160). Canvas was previously
+    // 400×440 (square-ish), which forced object-fit:cover to crop ~57px from
+    // top + bottom — wiping the winner banner AND the top/bottom rows of the
+    // grid. Switch to a true landscape 500×320 layout: banner at top, square
+    // grid centred underneath with ocean padding on the sides.
+    const W = 500, H = 320;
+    const bannerH = 32;
+    const gridPx = H - bannerH;            // 288 — the square grid area
+    const offsetX = (W - gridPx) / 2;       // centre horizontally
+    const offsetY = bannerH;
+    const gap = 4;
+    const cellSize = gridPx / gs;
+    const pad = offsetX;                    // legacy alias used below
+    tc.width = W; tc.height = H;
     const ctx = tc.getContext('2d');
-    // Ocean background
+    // Ocean background (full canvas, including the side padding strips)
     ctx.fillStyle = '#1a3a5c';
-    ctx.fillRect(0, 0, tc.width, tc.height);
-    // Winner banner
+    ctx.fillRect(0, 0, W, H);
+    // Subtle waves on the side ocean strips so they don't look dead
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    for (let i = 0; i < 6; i++) {
+      ctx.fillRect(0, bannerH + 30 + i * 40, offsetX, 2);
+      ctx.fillRect(W - offsetX, bannerH + 50 + i * 40, offsetX, 2);
+    }
+    // Winner banner — full width across the top
     const label = Array.isArray(winnerNames) ? winnerNames.join(', ') : winnerNames;
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(0, 0, size, 32);
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, W, bannerH);
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('🏆 ' + label + ' survives!', size / 2, 16);
+    ctx.fillText('🏆 ' + label + ' survives!', W / 2, bannerH / 2);
     // Grid
     const aliveSet = s.alive;
     for (let r = 0; r < gs; r++) {
       for (let c = 0; c < gs; c++) {
-        const cx = pad + c * cellSize + gap / 2;
-        const cy = 36 + r * cellSize + gap / 2;
+        const cx = offsetX + c * cellSize + gap / 2;
+        const cy = offsetY + r * cellSize + gap / 2;
         const cw = cellSize - gap;
         const key = `${r},${c}`;
         const ship = s.ships[key];
@@ -13627,10 +13645,16 @@ function startSnakeGame() {
         });
         const cx = (minX + maxX) / 2;
         const cy = (minY + maxY) / 2;
-        // Zoom wide enough to show the whole snake plus padding
+        // Zoom wide enough to show the whole snake plus padding.
+        // Polaroid is landscape (1.5625:1), so srcH = srcW / 1.5625. A tall/coiled
+        // snake (bodyH > bodyW) needs extra horizontal room so srcH still covers it.
         const bodyW = maxX - minX, bodyH = maxY - minY;
-        const targetWidth = Math.max(bodyW + CELL * 8, canvas.width * 0.45);
-        const zoom = Math.max(0.35, Math.min(0.9, targetWidth / canvas.width));
+        const targetWidth = Math.max(
+          bodyW + CELL * 8,
+          (bodyH + CELL * 8) * (250 / 160),
+          canvas.width * 0.45
+        );
+        const zoom = Math.max(0.35, Math.min(0.95, targetWidth / canvas.width));
         focusPoint = { x: cx, y: cy, zoom };
       }
       captureCanvasMoment('snakeCanvas', s.winner.name, undefined, focusPoint);
@@ -17589,7 +17613,21 @@ function finishExcaliberGame(t) {
   s.winnerName = players[winnerPlayerIdx];
   // Wait long enough for the figure to settle into pose + the done-banner to fade in
   setTimeout(() => {
-    try { captureCanvasMoment('excaliberCanvas', s.winnerName); } catch {}
+    try {
+      // Frame the polaroid around the actual action: knight feet (0.74H), the
+      // sword raised above their head (~140px above feet — fixed-pixel knight
+      // proportions), and just below the stone (~0.83H). Without an explicit
+      // focusPoint the default crop centred on 0.42H, which on portrait/mobile
+      // canvases sat in the empty sky area entirely above the knight.
+      const knightY  = s.H * 0.74;
+      const swordTop = knightY - 140;
+      const stoneBot = s.H * 0.83;
+      const focusY   = (swordTop + stoneBot) / 2;
+      const wantH    = (stoneBot - swordTop) + 40; // padding
+      const wantW    = wantH * (250 / 160);
+      const zoom     = Math.max(0.3, Math.min(1, wantW / s.W));
+      captureCanvasMoment('excaliberCanvas', s.winnerName, undefined, { x: s.W / 2, y: focusY, zoom });
+    } catch {}
     setTimeout(() => { resetGame(); showWinner(s.winnerName); }, 1300);
   }, 1500);
 }
