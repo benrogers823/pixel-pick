@@ -9920,6 +9920,13 @@ const CHAR_TYPES = [
   { name: 'Huntress', bodyColor: '#228B22', trimColor: '#d4af37', weapon: 'bow', female: true },
   { name: 'Shadow', bodyColor: '#2d1b4e', trimColor: '#dda0dd', weapon: 'dagger', female: true }
 ];
+// Weapon glyphs shown next to each finalist's name during the FINAL DUEL card
+const BATTLE_WEAPON_SYMBOLS = {
+  katana:     '🗡️',
+  broadsword: '⚔️',
+  bow:        '🏹',
+  dagger:     '🔪'
+};
 
 function initBattle() {
   showScreen('battleScreen');
@@ -10738,7 +10745,10 @@ function initBattle() {
           b.duelWinner.duelTargetX = center + 22; b.duelWinner.facing = -1;
           b.duelLoser.duelTargetX  = center - 22; b.duelLoser.facing  = 1;
         }
-        // Stop any in-progress jump/bounce so they walk in cleanly
+        // Float target: feet land around 0.55H so the body sits near vertical
+        // mid-screen (head ≈ 0.45H), leaving room above for FINAL DUEL text.
+        b.duelFloatY = groundY - H * 0.55;
+        // Stop any in-progress jump/bounce so they float in cleanly
         [b.duelWinner, b.duelLoser].forEach(c => {
           c.bouncingBack = false; c.bounceVX = 0; c.jumpVY = 0; c.jumpY = 0; c.isJumping = false;
         });
@@ -10754,19 +10764,24 @@ function initBattle() {
       const w = b.duelWinner, l = b.duelLoser;
       const dE = t - b.duelStart;
       if (b.duelSubState === 'closing') {
-        // Both fighters glide quickly to the centre, hovering above the ground.
-        // Ease-out so they decelerate into position rather than slamming to a stop.
+        // Both fighters glide horizontally AND rise to mid-screen so they
+        // hang in the air for the duel. Both axes use ease-out approach.
         [w, l].forEach(c => {
           const dx = c.duelTargetX - c.x;
-          const step = Math.min(9, Math.abs(dx) * 0.22 + 0.6); // fast at distance, slows on arrival
-          c.x += Math.sign(dx) * Math.min(step, Math.abs(dx));
-          // Float effect — lift off the ground with a gentle bob
-          c.jumpY = 18 + Math.sin(dE * 0.008 + c.attackPhase) * 3;
+          const stepX = Math.min(9, Math.abs(dx) * 0.22 + 0.6);
+          c.x += Math.sign(dx) * Math.min(stepX, Math.abs(dx));
+          // Float upward to mid-screen target
+          const dy = b.duelFloatY - c.jumpY;
+          c.jumpY += dy * 0.085;
         });
-        if (Math.abs(w.x - w.duelTargetX) < 1.2 && Math.abs(l.x - l.duelTargetX) < 1.2) {
-          // Snap to exact target so the lock-up is perfectly aligned
+        // Both axes within tolerance? Lock in for the fight.
+        const xClose = Math.abs(w.x - w.duelTargetX) < 1.2 && Math.abs(l.x - l.duelTargetX) < 1.2;
+        const yClose = Math.abs(w.jumpY - b.duelFloatY) < 4    && Math.abs(l.jumpY - b.duelFloatY) < 4;
+        if (xClose && yClose) {
           w.x = w.duelTargetX;
           l.x = l.duelTargetX;
+          w.jumpY = b.duelFloatY;
+          l.jumpY = b.duelFloatY;
           b.duelSubState = 'fighting';
           b.duelFightStart = t;
           // Start the rising noise/grumble that builds tension — louder peak now (0.32)
@@ -10788,12 +10803,11 @@ function initBattle() {
         b.duelShake = shakeAmp;
         w.shakeX = (Math.random() - 0.5) * shakeAmp;
         l.shakeX = (Math.random() - 0.5) * shakeAmp;
-        // Keep floating throughout the lock-up, with the bob accelerating
-        // slightly as tension peaks
-        const bobRate = 0.008 + (fE / 3000) * 0.006;
-        const floatBob = Math.sin(t * bobRate) * 4;
-        w.jumpY = 18 + floatBob;
-        l.jumpY = 18 - floatBob;
+        // Hold at the mid-screen float height with an opposing bob
+        const bobRate  = 0.008 + (fE / 3000) * 0.006;
+        const floatBob = Math.sin(t * bobRate) * 5;
+        w.jumpY = b.duelFloatY + floatBob;
+        l.jumpY = b.duelFloatY - floatBob;
         // Spawn billowing smoke between them
         if (Math.random() < 0.45 && fE > 200) {
           const cx = (w.x + l.x) / 2 + (Math.random() - 0.5) * 28;
@@ -11025,6 +11039,84 @@ function initBattle() {
           ctx.fillStyle = `rgba(220,220,255,${ba})`;
           ctx.fillRect(0, by, W, bh);
         }
+      }
+    }
+
+    // ── FINAL DUEL TITLE CARD ─────────────────────────────────────────────
+    // Big "FINAL DUEL" header + each finalist's name and weapon glyph on
+    // their respective side. Fades in as they float into position; fades
+    // out the moment one of them is sent flying (breaking sub-state).
+    if (b.phase === 'duel' && b.duelSubState !== 'breaking' && b.duelWinner && b.duelLoser) {
+      const closingE  = t - b.duelStart;
+      const fadeIn    = Math.min(1, closingE / 700);
+      const fightingE = b.duelFightStart ? (t - b.duelFightStart) : 0;
+      // Soft fade-out near the end of the lock-up so the final boom isn't cluttered
+      const fadeOutT  = b.duelSubState === 'fighting' ? Math.max(0, (fightingE - 2400) / 700) : 0;
+      const overlayA  = fadeIn * (1 - Math.min(1, fadeOutT));
+
+      if (overlayA > 0.02) {
+        ctx.save();
+        ctx.globalAlpha = overlayA;
+
+        // ── FINAL DUEL header (top centre) ───────────────────────────────
+        const titleY = H * 0.10;
+        const titlePulse = 1 + Math.sin(t * 0.005) * 0.04;
+        const titleSize = Math.min(72, W * 0.085);
+        ctx.font = `900 ${titleSize}px 'Press Start 2P', 'Georgia', serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.save();
+        ctx.translate(W / 2, titleY);
+        ctx.scale(titlePulse, titlePulse);
+        // Heavy outline + red glow
+        ctx.lineWidth = Math.max(5, titleSize * 0.10);
+        ctx.strokeStyle = '#000';
+        ctx.shadowColor = '#ff3344';
+        ctx.shadowBlur  = 28;
+        ctx.strokeText('FINAL DUEL', 0, 0);
+        // Inner fill — gold-into-white gradient
+        const titleGrad = ctx.createLinearGradient(0, -titleSize / 2, 0, titleSize / 2);
+        titleGrad.addColorStop(0,    '#fffce0');
+        titleGrad.addColorStop(0.5,  '#ffd14a');
+        titleGrad.addColorStop(1,    '#ff7a18');
+        ctx.fillStyle = titleGrad;
+        ctx.shadowBlur = 14;
+        ctx.fillText('FINAL DUEL', 0, 0);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        // ── Per-finalist nameplate ──────────────────────────────────────
+        [w, l].forEach(c => {
+          const isLeft = c.duelTargetX < W / 2;
+          const sideX  = isLeft ? W * 0.22 : W * 0.78;
+          const nameY  = H * 0.22;
+          const symY   = H * 0.33;
+          const nameSize = Math.min(46, W * 0.058);
+          const symSize  = Math.min(56, W * 0.07);
+
+          // Name — big, stroked, with a heavy player-colour glow
+          ctx.font = `900 ${nameSize}px 'Georgia', serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.lineWidth = Math.max(4, nameSize * 0.12);
+          ctx.strokeStyle = '#000';
+          ctx.shadowColor = c.type.trimColor;
+          ctx.shadowBlur  = 24;
+          ctx.strokeText(c.name, sideX, nameY);
+          ctx.shadowBlur  = 12;
+          ctx.fillStyle   = '#fff';
+          ctx.fillText(c.name, sideX, nameY);
+
+          // Weapon symbol — emoji glyph, glowing in the player's trim colour
+          const sym = BATTLE_WEAPON_SYMBOLS[c.type.weapon] || '⚔';
+          ctx.font = `${symSize}px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',serif`;
+          ctx.shadowColor = c.type.trimColor;
+          ctx.shadowBlur  = 28;
+          ctx.fillText(sym, sideX, symY);
+          ctx.shadowBlur = 0;
+        });
+
+        ctx.restore();
       }
     }
 
