@@ -10754,22 +10754,29 @@ function initBattle() {
       const w = b.duelWinner, l = b.duelLoser;
       const dE = t - b.duelStart;
       if (b.duelSubState === 'closing') {
-        // Both fighters walk toward their target points at the centre.
+        // Both fighters glide quickly to the centre, hovering above the ground.
+        // Ease-out so they decelerate into position rather than slamming to a stop.
         [w, l].forEach(c => {
           const dx = c.duelTargetX - c.x;
-          c.x += Math.sign(dx) * Math.min(1.6, Math.abs(dx));
+          const step = Math.min(9, Math.abs(dx) * 0.22 + 0.6); // fast at distance, slows on arrival
+          c.x += Math.sign(dx) * Math.min(step, Math.abs(dx));
+          // Float effect — lift off the ground with a gentle bob
+          c.jumpY = 18 + Math.sin(dE * 0.008 + c.attackPhase) * 3;
         });
-        if (Math.abs(w.x - w.duelTargetX) < 1 && Math.abs(l.x - l.duelTargetX) < 1) {
+        if (Math.abs(w.x - w.duelTargetX) < 1.2 && Math.abs(l.x - l.duelTargetX) < 1.2) {
+          // Snap to exact target so the lock-up is perfectly aligned
+          w.x = w.duelTargetX;
+          l.x = l.duelTargetX;
           b.duelSubState = 'fighting';
           b.duelFightStart = t;
-          // Start the rising grumble that builds tension
+          // Start the rising noise/grumble that builds tension — louder peak now (0.32)
           if (audioCtx) {
             b.duelGrumble = startBattleGrumble();
             if (b.duelGrumble) {
               try {
                 b.duelGrumble.gn.gain.cancelScheduledValues(audioCtx.currentTime);
                 b.duelGrumble.gn.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-                b.duelGrumble.gn.gain.exponentialRampToValueAtTime(0.20, audioCtx.currentTime + 2.6);
+                b.duelGrumble.gn.gain.exponentialRampToValueAtTime(0.32, audioCtx.currentTime + 2.8);
               } catch (e) {}
             }
           }
@@ -10781,6 +10788,12 @@ function initBattle() {
         b.duelShake = shakeAmp;
         w.shakeX = (Math.random() - 0.5) * shakeAmp;
         l.shakeX = (Math.random() - 0.5) * shakeAmp;
+        // Keep floating throughout the lock-up, with the bob accelerating
+        // slightly as tension peaks
+        const bobRate = 0.008 + (fE / 3000) * 0.006;
+        const floatBob = Math.sin(t * bobRate) * 4;
+        w.jumpY = 18 + floatBob;
+        l.jumpY = 18 - floatBob;
         // Spawn billowing smoke between them
         if (Math.random() < 0.45 && fE > 200) {
           const cx = (w.x + l.x) / 2 + (Math.random() - 0.5) * 28;
@@ -10833,8 +10846,13 @@ function initBattle() {
         }
       } else if (b.duelSubState === 'breaking') {
         const bE = t - b.duelBreakStart;
-        // Wait for the loser to clear the screen (or 1.8s timeout)
-        if (bE > 1800 || l.x < -80 || l.x > W + 80 || (l.y - l.jumpY) < -120) {
+        // End the round the instant the loser fully clears the screen.
+        // (2500ms timeout is just a safety belt in case physics keep them visible.)
+        const offTop    = (l.y - l.jumpY) < -50;
+        const offBottom = (l.y - l.jumpY) > H + 60;
+        const offLeft   = l.x < -50;
+        const offRight  = l.x > W + 50;
+        if (offTop || offBottom || offLeft || offRight || bE > 2500) {
           b.phase = 'done';
           b.winners = [w];
           b.doneTime = t;
@@ -10983,6 +11001,31 @@ function initBattle() {
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
         ctx.fill();
       });
+    }
+
+    // Building static-noise overlay during the lock-up. Density and brightness
+    // both ramp from 0 at the start of the fighting subState to full at ~3s.
+    if (b.phase === 'duel' && b.duelSubState === 'fighting' && b.duelFightStart) {
+      const fE = t - b.duelFightStart;
+      const noiseT = Math.min(1, fE / 3000);
+      // Random pixel sprinkle — count and alpha both scale with intensity
+      const dotCount = Math.floor(noiseT * 140);
+      for (let i = 0; i < dotCount; i++) {
+        const a = 0.05 + Math.random() * 0.15 * noiseT;
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        ctx.fillRect(Math.random() * W, Math.random() * H, 2, 2);
+      }
+      // Faint horizontal scanline distortion bands that appear near the peak
+      if (noiseT > 0.45) {
+        const bands = 2 + Math.floor(noiseT * 3);
+        for (let i = 0; i < bands; i++) {
+          const by = Math.random() * H;
+          const bh = 1 + Math.random() * 3;
+          const ba = (noiseT - 0.45) * 0.35 * (0.5 + Math.random() * 0.5);
+          ctx.fillStyle = `rgba(220,220,255,${ba})`;
+          ctx.fillRect(0, by, W, bh);
+        }
+      }
     }
 
     ctx.restore(); // end shake transform
@@ -12284,40 +12327,58 @@ function startHorseCrowd(vol) {
   } catch(e) { return null; }
 }
 
-// Battle 1v1 grumble — sustained low rumble with steadily-rising pitch sweep,
-// to build dread while the two finalists shake at each other. Caller is
-// expected to ramp gn.gain from ~0 up to ~0.2 over a couple of seconds.
+// Battle 1v1 grumble — building noise effect for the lock-up. Two parallel
+// filtered noise sources (low rumble + mid-band hiss), both sweeping upward
+// over ~3s for an audibly escalating wash. Caller ramps gn.gain from ~0 up
+// to its peak (~0.32) over the same window.
 function startBattleGrumble() {
   if (!audioCtx) return null;
   try {
-    // Brown-ish noise base
+    // Brown-ish noise base — dense and seedy
     const len = Math.floor(audioCtx.sampleRate * 1.6);
     const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
     const d = buf.getChannelData(0);
     let last = 0;
     for (let i = 0; i < len; i++) {
       const white = Math.random() * 2 - 1;
-      last = (last + 0.025 * white) / 1.025;
-      d[i] = last * 3.5;
+      last = (last + 0.03 * white) / 1.03;
+      d[i] = last * 4;
     }
     const src = audioCtx.createBufferSource();
     src.buffer = buf; src.loop = true;
-    // Low-pass to keep it firmly in rumble territory; sweep upward over the build
+
+    // Low-pass branch — the deep rumble. Sweeps upward as tension builds.
     const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass';
     lp.frequency.setValueAtTime(110, audioCtx.currentTime);
-    lp.frequency.exponentialRampToValueAtTime(380, audioCtx.currentTime + 3.0);
+    lp.frequency.exponentialRampToValueAtTime(420, audioCtx.currentTime + 3.0);
     lp.Q.value = 0.7;
-    // Subtle low oscillator detune for an unsettling waver
+    const lpGain = audioCtx.createGain(); lpGain.gain.value = 0.7;
+
+    // Band-pass branch — the airy mid hiss that climbs into focus, the part
+    // that sells "noise effect that builds while they fight".
+    const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(900, audioCtx.currentTime);
+    bp.frequency.exponentialRampToValueAtTime(2600, audioCtx.currentTime + 3.0);
+    bp.Q.value = 1.4;
+    const bpGain = audioCtx.createGain(); bpGain.gain.value = 0.35;
+
+    // Tremolo so the wash breathes rather than sitting flat
     const tremOsc = audioCtx.createOscillator();
     tremOsc.type = 'sine'; tremOsc.frequency.value = 4.2;
     const tremDepth = audioCtx.createGain(); tremDepth.gain.value = 0.35;
     const tremMod = audioCtx.createGain(); tremMod.gain.value = 1;
     tremOsc.connect(tremDepth); tremDepth.connect(tremMod.gain);
+
     // Master gain — caller controls fade-in
     const gn = audioCtx.createGain(); gn.gain.value = 0.0001;
-    src.connect(lp); lp.connect(tremMod); tremMod.connect(gn); gn.connect(sfxGain);
+
+    // Wire both branches through the tremolo into the master
+    src.connect(lp); lp.connect(lpGain); lpGain.connect(tremMod);
+    src.connect(bp); bp.connect(bpGain); bpGain.connect(tremMod);
+    tremMod.connect(gn); gn.connect(sfxGain);
+
     src.start(); tremOsc.start();
-    return { src, gn, tremOsc, lp };
+    return { src, gn, tremOsc, lp, bp };
   } catch (e) { return null; }
 }
 
