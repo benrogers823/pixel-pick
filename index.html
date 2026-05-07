@@ -9990,13 +9990,24 @@ function initBattle() {
     fightStart: 0,
     winner: null,
     doneTime: 0,
+    canvas, W, H, groundY,         // expose for cleanup + duel logic
     // Asteroid event — fires once per game between 6-16s into the fight
     asteroidScheduledAt: 6000 + Math.random() * 10000,
     asteroid: null,             // active asteroid object once spawned
     asteroidDone: false,        // true once impact has happened
     asteroidCrater: null,       // {x, y, time} for lingering crater visual
     asteroidShake: 0,           // screen shake amplitude after impact
-    asteroidParticles: []       // debris/dust particles
+    asteroidParticles: [],      // debris/dust particles
+    // 1v1 final duel — entered when only 2 fighters are left in single-winner mode
+    duelStarted: false,
+    duelSubState: null,         // 'closing' | 'fighting' | 'breaking'
+    duelStart: 0,
+    duelFightStart: 0,
+    duelBreakStart: 0,
+    duelWinner: null,
+    duelLoser: null,
+    duelGrumble: null,          // sustained low rumble audio source
+    smokeParticles: []          // billowing smoke during the lock-up
   };
 
   if (creatorMode) {
@@ -10011,6 +10022,11 @@ function initBattle() {
 
   currentGameCleanup = () => {
     if (battleState && battleState.raf) cancelAnimationFrame(battleState.raf);
+    if (battleState && battleState.duelGrumble) {
+      try { battleState.duelGrumble.src.stop(); } catch(e) {}
+      try { battleState.duelGrumble.gn.disconnect(); } catch(e) {}
+      battleState.duelGrumble = null;
+    }
     battleState = null;
   };
 
@@ -10021,7 +10037,8 @@ function initBattle() {
 
     ctx.save();
     ctx.globalAlpha = c.opacity;
-    ctx.translate(c.x, c.y - c.jumpY);
+    // shakeX is set during the 1v1 duel lock-up so fighters quiver in place
+    ctx.translate(c.x + (c.shakeX || 0), c.y - c.jumpY);
     ctx.rotate(c.rotation);
     ctx.scale(c.facing, 1);
 
@@ -10593,6 +10610,11 @@ function initBattle() {
               if (c.lives <= 0) {
                 c.alive = false;
                 c.deathTime = t;
+                // Asteroid kill — launched away from the impact, mostly up
+                const dirX = c.x < a.targetX ? -1 : 1;
+                c.deathVx = dirX * (8 + Math.random() * 5);
+                c.deathVy = -(13 + Math.random() * 6);
+                c.deathRotSpeed = dirX * (0.18 + Math.random() * 0.12);
                 if (el) el.textContent = '💀';
                 const row = document.getElementById('bi_' + c.name.replace(/\s/g, '_'));
                 if (row) { row.style.textDecoration = 'line-through'; row.style.opacity = '0.4'; }
@@ -10656,10 +10678,16 @@ function initBattle() {
               victim.lives--;
               const el = document.getElementById('bl_' + victim.name.replace(/\s/g, '_'));
               if (victim.lives <= 0) {
-                // Second hit — real death
+                // Second hit — real death. Send the loser flying off-screen
+                // at a random upward angle instead of the old fade-to-nothing.
                 victim.alive = false;
                 victim.deathTime = t;
                 victim.hitFlashTime = t;
+                const ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.6; // -90° ± 45°
+                const spd = 12 + Math.random() * 6;
+                victim.deathVx = Math.cos(ang) * spd;
+                victim.deathVy = Math.sin(ang) * spd;
+                victim.deathRotSpeed = (Math.random() < 0.5 ? 1 : -1) * (0.12 + Math.random() * 0.12);
                 sfx('hit');
                 if (el) el.textContent = '💀';
                 const row = document.getElementById('bi_' + victim.name.replace(/\s/g, '_'));
@@ -10688,22 +10716,160 @@ function initBattle() {
       // Music intensity — ramps as players are eliminated
       const battleTotal = b.chars.length;
       setMusicIntensity(1 - (remaining.length - playersPicked) / Math.max(1, battleTotal - playersPicked));
-      if (remaining.length <= playersPicked) {
+      // 1v1 final duel — only in single-winner mode, only on the first time we reach 2
+      if (remaining.length === 2 && playersPicked === 1 && !b.duelStarted) {
+        b.duelStarted = true;
+        b.phase = 'duel';
+        b.duelStart = t;
+        b.duelSubState = 'closing';
+        // Pick winner — creator-mode override or random
+        if (creatorMode && creatorChosenWinner) {
+          b.duelWinner = remaining.find(c => c.name === creatorChosenWinner) || remaining[0];
+        } else {
+          b.duelWinner = remaining[Math.floor(Math.random() * 2)];
+        }
+        b.duelLoser = remaining.find(c => c !== b.duelWinner);
+        // Stand them just inside arm's reach of each other at the centre
+        const center = W / 2;
+        if (b.duelWinner.x < b.duelLoser.x) {
+          b.duelWinner.duelTargetX = center - 22; b.duelWinner.facing = 1;
+          b.duelLoser.duelTargetX  = center + 22; b.duelLoser.facing  = -1;
+        } else {
+          b.duelWinner.duelTargetX = center + 22; b.duelWinner.facing = -1;
+          b.duelLoser.duelTargetX  = center - 22; b.duelLoser.facing  = 1;
+        }
+        // Stop any in-progress jump/bounce so they walk in cleanly
+        [b.duelWinner, b.duelLoser].forEach(c => {
+          c.bouncingBack = false; c.bounceVX = 0; c.jumpVY = 0; c.jumpY = 0; c.isJumping = false;
+        });
+      } else if (remaining.length <= playersPicked) {
         b.phase = 'done';
         b.winners = remaining;
         b.doneTime = t;
       }
     }
 
-    // Death animations
+    // ── 1V1 DUEL PHASE — closing → fighting → breaking ──────────────────────
+    if (b.phase === 'duel') {
+      const w = b.duelWinner, l = b.duelLoser;
+      const dE = t - b.duelStart;
+      if (b.duelSubState === 'closing') {
+        // Both fighters walk toward their target points at the centre.
+        [w, l].forEach(c => {
+          const dx = c.duelTargetX - c.x;
+          c.x += Math.sign(dx) * Math.min(1.6, Math.abs(dx));
+        });
+        if (Math.abs(w.x - w.duelTargetX) < 1 && Math.abs(l.x - l.duelTargetX) < 1) {
+          b.duelSubState = 'fighting';
+          b.duelFightStart = t;
+          // Start the rising grumble that builds tension
+          if (audioCtx) {
+            b.duelGrumble = startBattleGrumble();
+            if (b.duelGrumble) {
+              try {
+                b.duelGrumble.gn.gain.cancelScheduledValues(audioCtx.currentTime);
+                b.duelGrumble.gn.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+                b.duelGrumble.gn.gain.exponentialRampToValueAtTime(0.20, audioCtx.currentTime + 2.6);
+              } catch (e) {}
+            }
+          }
+        }
+      } else if (b.duelSubState === 'fighting') {
+        const fE = t - b.duelFightStart;
+        // Shake intensity ramps from 0 → ~9 over 2.6s
+        const shakeAmp = Math.min(9, fE / 290);
+        b.duelShake = shakeAmp;
+        w.shakeX = (Math.random() - 0.5) * shakeAmp;
+        l.shakeX = (Math.random() - 0.5) * shakeAmp;
+        // Spawn billowing smoke between them
+        if (Math.random() < 0.45 && fE > 200) {
+          const cx = (w.x + l.x) / 2 + (Math.random() - 0.5) * 28;
+          const cy = w.y - 10 - Math.random() * 30;
+          b.smokeParticles.push({
+            x: cx, y: cy,
+            vx: (Math.random() - 0.5) * 1.6,
+            vy: -1 - Math.random() * 1.4,
+            life: 0,
+            maxLife: 1.4 + Math.random() * 0.8,
+            size: 8 + Math.random() * 10
+          });
+        }
+        // After ~3.2s of escalating shaking the loser is sent flying
+        if (fE > 3200) {
+          b.duelSubState = 'breaking';
+          b.duelBreakStart = t;
+          l.shakeX = 0; w.shakeX = 0;
+          // Loser dies + flies off at a random skywards angle
+          l.alive = false;
+          l.deathTime = t;
+          const ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
+          const spd = 17 + Math.random() * 7;
+          l.deathVx = Math.cos(ang) * spd + (l.x < w.x ? -3 : 3); // bias away from winner
+          l.deathVy = Math.sin(ang) * spd;
+          l.deathRotSpeed = (l.x < w.x ? -1 : 1) * (0.18 + Math.random() * 0.15);
+          // Cut the grumble + boom
+          if (b.duelGrumble) {
+            try { b.duelGrumble.gn.gain.cancelScheduledValues(audioCtx.currentTime);
+                  b.duelGrumble.gn.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.25); } catch(e) {}
+            setTimeout(() => { try { b.duelGrumble.src.stop(); } catch(e) {} }, 350);
+            b.duelGrumble = null;
+          }
+          sfx('meteor-impact');
+          // Big puff of smoke at separation point
+          for (let i = 0; i < 18; i++) {
+            const px = (w.x + l.x) / 2;
+            const py = w.y - 25;
+            const a = Math.random() * Math.PI * 2;
+            const v = 2 + Math.random() * 4;
+            b.smokeParticles.push({
+              x: px, y: py,
+              vx: Math.cos(a) * v,
+              vy: Math.sin(a) * v - 2,
+              life: 0,
+              maxLife: 1.3 + Math.random() * 0.7,
+              size: 12 + Math.random() * 8
+            });
+          }
+        }
+      } else if (b.duelSubState === 'breaking') {
+        const bE = t - b.duelBreakStart;
+        // Wait for the loser to clear the screen (or 1.8s timeout)
+        if (bE > 1800 || l.x < -80 || l.x > W + 80 || (l.y - l.jumpY) < -120) {
+          b.phase = 'done';
+          b.winners = [w];
+          b.doneTime = t;
+        }
+      }
+      // Smoke advection
+      b.smokeParticles.forEach(p => {
+        p.life += 0.016;
+        p.x += p.vx; p.y += p.vy;
+        p.vx *= 0.985; p.vy *= 0.985;
+      });
+      b.smokeParticles = b.smokeParticles.filter(p => p.life < p.maxLife);
+    }
+
+    // Death animations — fly off at the assigned velocity, fade only off-screen
     b.chars.forEach(c => {
       if (!c.alive && c.deathTime) {
-        const elapsed = (t - c.deathTime) / 1000;
-        if (elapsed < 0.8) {
-          c.rotation = (elapsed / 0.8) * Math.PI / 2;
+        if (c.deathVx !== undefined) {
+          c.x += c.deathVx;
+          c.y += c.deathVy;
+          c.deathVy += 0.42; // gravity pulls them back down once they peak
+          c.rotation = (c.rotation || 0) + (c.deathRotSpeed || 0);
+          // Once well off-screen, fade out so they're cleanly gone
+          if (c.y > H + 200 || c.x < -250 || c.x > W + 250) {
+            c.opacity = Math.max(0, (c.opacity ?? 1) - 0.12);
+          }
         } else {
-          c.rotation = Math.PI / 2;
-          c.opacity = Math.max(0, 1 - (elapsed - 0.8) / 0.5);
+          // Fallback (shouldn't fire in normal play): old rotate-fade
+          const elapsed = (t - c.deathTime) / 1000;
+          if (elapsed < 0.8) {
+            c.rotation = (elapsed / 0.8) * Math.PI / 2;
+          } else {
+            c.rotation = Math.PI / 2;
+            c.opacity = Math.max(0, 1 - (elapsed - 0.8) / 0.5);
+          }
         }
       }
     });
@@ -10799,6 +10965,24 @@ function initBattle() {
     // Draw all characters (not during intro, handled separately)
     if (b.phase !== 'intro') {
       b.chars.forEach(c => drawCharacter(c, t));
+    }
+
+    // Smoke billowing from the 1v1 lock-up — drawn in front of fighters
+    if (b.smokeParticles && b.smokeParticles.length) {
+      b.smokeParticles.forEach(p => {
+        const lifeT = p.life / p.maxLife;        // 0 → 1
+        const a = (1 - lifeT) * 0.55;            // fade out over time
+        const r = p.size * (1 + lifeT * 0.8);    // billow outward
+        // Soft grey gradient blobs
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        g.addColorStop(0,   `rgba(120,118,128,${a * 1.0})`);
+        g.addColorStop(0.5, `rgba(80,78,90,${a * 0.7})`);
+        g.addColorStop(1,   'rgba(40,38,48,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+      });
     }
 
     ctx.restore(); // end shake transform
@@ -12098,6 +12282,43 @@ function startHorseCrowd(vol) {
     src.start();
     return { src, gn };
   } catch(e) { return null; }
+}
+
+// Battle 1v1 grumble — sustained low rumble with steadily-rising pitch sweep,
+// to build dread while the two finalists shake at each other. Caller is
+// expected to ramp gn.gain from ~0 up to ~0.2 over a couple of seconds.
+function startBattleGrumble() {
+  if (!audioCtx) return null;
+  try {
+    // Brown-ish noise base
+    const len = Math.floor(audioCtx.sampleRate * 1.6);
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const white = Math.random() * 2 - 1;
+      last = (last + 0.025 * white) / 1.025;
+      d[i] = last * 3.5;
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    // Low-pass to keep it firmly in rumble territory; sweep upward over the build
+    const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(110, audioCtx.currentTime);
+    lp.frequency.exponentialRampToValueAtTime(380, audioCtx.currentTime + 3.0);
+    lp.Q.value = 0.7;
+    // Subtle low oscillator detune for an unsettling waver
+    const tremOsc = audioCtx.createOscillator();
+    tremOsc.type = 'sine'; tremOsc.frequency.value = 4.2;
+    const tremDepth = audioCtx.createGain(); tremDepth.gain.value = 0.35;
+    const tremMod = audioCtx.createGain(); tremMod.gain.value = 1;
+    tremOsc.connect(tremDepth); tremDepth.connect(tremMod.gain);
+    // Master gain — caller controls fade-in
+    const gn = audioCtx.createGain(); gn.gain.value = 0.0001;
+    src.connect(lp); lp.connect(tremMod); tremMod.connect(gn); gn.connect(sfxGain);
+    src.start(); tremOsc.start();
+    return { src, gn, tremOsc, lp };
+  } catch (e) { return null; }
 }
 
 // Thunder of hooves — continuous sub-bass rumble with tremolo modulation.
@@ -16363,6 +16584,11 @@ function cleanupPicker() {
 
 // ============ GAME 13: EXCALIBER ============
 let excaliberState = null;
+// Knight body scale — pump pixel art up so the figure reads clearly even on
+// large desktop canvases. Applied via ctx.scale in drawExcaliberKnight and
+// mirrored by EXCALIBER_KS-multiplied offsets in drawExcaliberSword's
+// raised-aloft pose and in the world-space stretched-arm path.
+const EXCALIBER_KS = 1.55;
 
 function initExcaliber() {
   showScreen('excaliberScreen');
@@ -16428,6 +16654,41 @@ function initExcaliber() {
       r: 0.5 + Math.random() * 1.2, a: 0.25 + Math.random() * 0.55, tw: Math.random() * 6
     })),
     mistOffset: 0,
+    // Shadowy crowd silhouettes flanking the stone — react to fails/wins
+    crowd: (() => {
+      const out = [];
+      const W2 = canvas.width / dpr, H2 = canvas.height / dpr;
+      // Three rows of spectators: front row largest, back rows smaller (depth)
+      for (let row = 0; row < 3; row++) {
+        const rowYBase = H2 * (0.685 + row * 0.022);
+        const rowSize  = 1.1 - row * 0.18;
+        // Left cluster (x: 0.04W → 0.34W)
+        const lc = 8 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < lc; i++) {
+          out.push({
+            x: W2 * (0.04 + (i / lc) * 0.30) + (Math.random() - 0.5) * 10,
+            baseY: rowYBase + (Math.random() - 0.5) * 5,
+            size: rowSize * (0.85 + Math.random() * 0.30),
+            bobOffset: Math.random() * Math.PI * 2,
+            armDelay: Math.random() * 350,
+          });
+        }
+        // Right cluster (x: 0.66W → 0.96W)
+        const rc = 8 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < rc; i++) {
+          out.push({
+            x: W2 * (0.66 + (i / rc) * 0.30) + (Math.random() - 0.5) * 10,
+            baseY: rowYBase + (Math.random() - 0.5) * 5,
+            size: rowSize * (0.85 + Math.random() * 0.30),
+            bobOffset: Math.random() * Math.PI * 2,
+            armDelay: Math.random() * 350,
+          });
+        }
+      }
+      return out;
+    })(),
+    crowdReaction: null,        // null | 'oo' | 'cheer'
+    crowdReactionStart: 0,
   };
 
   currentGameCleanup = cleanupExcaliber;
@@ -16553,10 +16814,16 @@ function excaliberLoop(t) {
         setTimeout(() => sfx('sword-success'), 220);
         setTimeout(() => sfx('crowd-cheer'), 700); // crowd reaction lands a beat after fanfare hits
         spawnExcaliberSparks(40);
+        // Crowd silhouettes erupt — arms-up cheer that lasts through the cutscene
+        s.crowdReaction = 'cheer';
+        s.crowdReactionStart = t;
       } else {
         // FAIL — wooden thud + disappointed crowd boo
         setTimeout(() => sfx('sword-fail'), 0);
         setTimeout(() => sfx('crowd-boo'), 280);
+        // Crowd silhouettes "ohhh" — duck back briefly then settle
+        s.crowdReaction = 'oo';
+        s.crowdReactionStart = t;
         if (s.char) {
           // Some fail types pair best with certain tension variants
           const allFails = ['slip-back', 'fall-over', 'give-up', 'overpull',
@@ -17134,6 +17401,55 @@ function drawExcaliberScene(t, phaseElapsed) {
   ground.addColorStop(1, '#06030a');
   ctx.fillStyle = ground; ctx.fillRect(0, H * 0.65, W, H * 0.35);
 
+  // Shadowy crowd silhouettes flanking the action — animated reactions to
+  // each fail (duck/lean back) and to the winner (arms-up cheer + jump).
+  if (s.crowd) {
+    const reactElapsed = s.crowdReactionStart ? (t - s.crowdReactionStart) : Infinity;
+    const ooActive    = s.crowdReaction === 'oo'    && reactElapsed < 1600;
+    const cheerActive = s.crowdReaction === 'cheer' && reactElapsed < 4500;
+    s.crowd.forEach(cr => {
+      // Idle micro-bob so the crowd doesn't feel like cardboard cut-outs
+      let yOff = Math.sin(t * 0.0023 + cr.bobOffset) * 1.3;
+      let armRaiseT = 0;
+      if (ooActive) {
+        // Sympathetic ducked lean: down then settle
+        const phase = reactElapsed / 1600;
+        yOff += Math.sin(phase * Math.PI) * 4;
+      } else if (cheerActive) {
+        // Arms shoot up over ~300ms (with per-fan delay), then a jubilant bounce
+        armRaiseT = Math.max(0, Math.min(1, (reactElapsed - cr.armDelay) / 280));
+        if (reactElapsed > cr.armDelay) {
+          yOff -= Math.abs(Math.sin(t * 0.012 + cr.bobOffset)) * 3;
+        }
+      }
+      const hr = 4 * cr.size;
+      const bh = 13 * cr.size;
+      const cx = cr.x;
+      const baseY = cr.baseY + yOff;
+      ctx.fillStyle = '#0a0810';
+      // Body
+      ctx.fillRect(cx - 3 * cr.size, baseY - bh, 6 * cr.size, bh);
+      // Head
+      ctx.beginPath();
+      ctx.arc(cx, baseY - bh - hr, hr, 0, Math.PI * 2);
+      ctx.fill();
+      // Arms — raised when cheering
+      if (armRaiseT > 0) {
+        const armLen = 9 * cr.size * armRaiseT;
+        ctx.strokeStyle = '#0a0810';
+        ctx.lineWidth = 2 * cr.size;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(cx - 3 * cr.size, baseY - bh * 0.75);
+        ctx.lineTo(cx - 5 * cr.size, baseY - bh - armLen);
+        ctx.moveTo(cx + 3 * cr.size, baseY - bh * 0.75);
+        ctx.lineTo(cx + 5 * cr.size, baseY - bh - armLen);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+      }
+    });
+  }
+
   // Torches flanking the stone (between village lanterns and the path)
   drawTorch(ctx, W * 0.38, H * 0.74, t, s.torchPhase[0]);
   drawTorch(ctx, W * 0.62, H * 0.74, t, s.torchPhase[1]);
@@ -17352,56 +17668,59 @@ function drawExcaliberSword(ctx, stoneCx, stoneCy, t) {
   // If the winner's character is holding the sword aloft, override sword position to be over their head
   if (s.finalCutscene && s.char && s.char.holdsSword) {
     const ch = s.char;
-    // Knight feet at ch.y; head top at ch.y - bodyH(22) - headR*2(14) = ch.y - 36.
-    // Hands raised above head about 30px → sword grip held there.
+    const KS = EXCALIBER_KS;
+    // Knight feet at ch.y; head top at ch.y - (bodyH + headR*2) * KS.
+    // Hands raised above head about 30px (scaled) → sword grip held there.
     const headX = ch.x;
-    const gripY = ch.y - 70; // hands held up above the head
+    const gripY = ch.y - 70 * KS; // hands held up above the head
     // Stretched arms reaching up from shoulders to the hilt
-    const shoulderY = ch.y - 22 * 0.85; // ≈ ch.y - 18.7
-    const shoulderLX = ch.x - 6;
-    const shoulderRX = ch.x + 6;
-    [['rgba(0,0,0,0.45)', 6], [ch.color, 4]].forEach(([col, lw]) => {
+    const shoulderY = ch.y - 22 * 0.85 * KS;
+    const shoulderLX = ch.x - 6 * KS;
+    const shoulderRX = ch.x + 6 * KS;
+    [['rgba(0,0,0,0.45)', 6 * KS], [ch.color, 4 * KS]].forEach(([col, lw]) => {
       ctx.strokeStyle = col;
       ctx.lineWidth = lw;
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(shoulderLX, shoulderY);
-      ctx.quadraticCurveTo(shoulderLX - 2, (shoulderY + gripY) / 2, headX - 5, gripY + 2);
+      ctx.quadraticCurveTo(shoulderLX - 2 * KS, (shoulderY + gripY) / 2, headX - 5 * KS, gripY + 2);
       ctx.moveTo(shoulderRX, shoulderY);
-      ctx.quadraticCurveTo(shoulderRX + 2, (shoulderY + gripY) / 2, headX + 5, gripY + 2);
+      ctx.quadraticCurveTo(shoulderRX + 2 * KS, (shoulderY + gripY) / 2, headX + 5 * KS, gripY + 2);
       ctx.stroke();
     });
     ctx.lineCap = 'butt';
-    // Vertical sword above head (blade goes UP from grip)
+    // Vertical sword above head (blade goes UP from grip) — scaled with knight
     ctx.fillStyle = '#dde4ed';
-    ctx.fillRect(headX - 2, gripY - 70, 4, 70);
+    ctx.fillRect(headX - 2 * KS, gripY - 70 * KS, 4 * KS, 70 * KS);
     ctx.fillStyle = '#aab2bd';
-    ctx.fillRect(headX + 1, gripY - 70, 1, 70);
+    ctx.fillRect(headX + 1 * KS, gripY - 70 * KS, 1 * KS, 70 * KS);
     // Crossguard (just above the gripping hands)
     ctx.fillStyle = '#ffd96a';
-    ctx.fillRect(headX - 14, gripY - 4, 28, 5);
+    ctx.fillRect(headX - 14 * KS, gripY - 4 * KS, 28 * KS, 5 * KS);
     ctx.fillStyle = '#a07820';
-    ctx.fillRect(headX - 14, gripY + 1, 28, 1);
+    ctx.fillRect(headX - 14 * KS, gripY + 1 * KS, 28 * KS, 1 * KS);
     // Hilt grip — between the two hands
     ctx.fillStyle = '#5a3818';
-    ctx.fillRect(headX - 2, gripY + 2, 4, 11);
+    ctx.fillRect(headX - 2 * KS, gripY + 2 * KS, 4 * KS, 11 * KS);
     // Pommel (below grip, between hands)
     ctx.fillStyle = '#ffd96a';
-    ctx.beginPath(); ctx.arc(headX, gripY + 14, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(headX, gripY + 14 * KS, 3.5 * KS, 0, Math.PI * 2); ctx.fill();
     // Glove fists wrapping the hilt
     ctx.fillStyle = '#9aa3ad';
-    ctx.fillRect(headX - 8, gripY, 5, 5);
-    ctx.fillRect(headX + 3, gripY, 5, 5);
+    ctx.fillRect(headX - 8 * KS, gripY, 5 * KS, 5 * KS);
+    ctx.fillRect(headX + 3 * KS, gripY, 5 * KS, 5 * KS);
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.fillRect(headX - 7, gripY + 1, 2, 1);
-    ctx.fillRect(headX + 4, gripY + 1, 2, 1);
-    // Big halo glow behind the raised sword
-    const halo = ctx.createRadialGradient(headX, gripY - 35, 0, headX, gripY - 35, 110);
+    ctx.fillRect(headX - 7 * KS, gripY + 1 * KS, 2 * KS, 1 * KS);
+    ctx.fillRect(headX + 4 * KS, gripY + 1 * KS, 2 * KS, 1 * KS);
+    // Big halo glow behind the raised sword (scaled with knight)
+    const haloR = 110 * KS;
+    const haloCY = gripY - 35 * KS;
+    const halo = ctx.createRadialGradient(headX, haloCY, 0, headX, haloCY, haloR);
     halo.addColorStop(0, 'rgba(255,235,140,0.50)');
     halo.addColorStop(0.5, 'rgba(255,180,40,0.22)');
     halo.addColorStop(1, 'rgba(255,160,30,0)');
     ctx.fillStyle = halo;
-    ctx.beginPath(); ctx.arc(headX, gripY - 35, 110, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(headX, haloCY, haloR, 0, Math.PI * 2); ctx.fill();
     return;
   }
 
@@ -17435,6 +17754,9 @@ function drawExcaliberKnight(ctx, c, stoneCx, stoneCy, t, phaseElapsed) {
   ctx.translate(x, y);
   if (c.failSpinAngle) ctx.rotate(c.failSpinAngle * facing * -1);
   if (facing < 0) ctx.scale(-1, 1);
+  // Pump the knight up so the figure reads clearly at any canvas size.
+  // World-space arms (after restore) and the sword-aloft pose mirror this.
+  ctx.scale(EXCALIBER_KS, EXCALIBER_KS);
 
   // Body proportions
   const bodyW = 14, bodyH = 22;
@@ -17517,19 +17839,20 @@ function drawExcaliberKnight(ctx, c, stoneCx, stoneCy, t, phaseElapsed) {
   // ── Long stretched arms reaching to the sword hilt (world-space) ─────────
   if (grabbing) {
     const sw = excaliberState;
+    const KS = EXCALIBER_KS;
     const sworldX = sw.W / 2 + sw.swordWiggle;
     const bladeBaseY = stoneCy - sw.H * 0.04 + sw.swordY;
     const bladeTopY  = bladeBaseY - sw.H * 0.16;
     // Grip target — middle of the hilt grip (between crossguard and pommel)
     const gripY = bladeTopY - 9;
-    // World shoulder positions (near the top of the body)
-    const shoulderY = y - bodyH * 0.85;
-    const shoulderLX = x - (bodyW / 2 - 1);
-    const shoulderRX = x + (bodyW / 2 - 1);
+    // World shoulder positions, scaled to match the bigger knight body
+    const shoulderY  = y - bodyH * 0.85 * KS;
+    const shoulderLX = x - (bodyW / 2 - 1) * KS;
+    const shoulderRX = x + (bodyW / 2 - 1) * KS;
     // Tension wobble — small jitter so arms quiver while pulling
     const wob = (phase === 'tension') ? (Math.random() - 0.5) * 1.6 : 0;
-    // Arm shading: dark outline beneath, then player-color stroke
-    [['rgba(0,0,0,0.45)', 6], [c.color, 4]].forEach(([col, lw]) => {
+    // Arm shading: dark outline beneath, then player-color stroke (scaled widths)
+    [['rgba(0,0,0,0.45)', 6 * KS], [c.color, 4 * KS]].forEach(([col, lw]) => {
       ctx.strokeStyle = col;
       ctx.lineWidth = lw;
       ctx.lineCap = 'round';
@@ -17537,18 +17860,18 @@ function drawExcaliberKnight(ctx, c, stoneCx, stoneCy, t, phaseElapsed) {
       ctx.moveTo(shoulderLX + wob, shoulderY);
       // Slight bend inward — bicep/forearm two-segment curve
       ctx.quadraticCurveTo(
-        (shoulderLX + sworldX) / 2 - 4, shoulderY - 14,
-        sworldX - 5,                    gripY + 2
+        (shoulderLX + sworldX) / 2 - 4 * KS, shoulderY - 14 * KS,
+        sworldX - 5,                          gripY + 2
       );
       ctx.moveTo(shoulderRX - wob, shoulderY);
       ctx.quadraticCurveTo(
-        (shoulderRX + sworldX) / 2 + 4, shoulderY - 14,
-        sworldX + 5,                    gripY + 2
+        (shoulderRX + sworldX) / 2 + 4 * KS, shoulderY - 14 * KS,
+        sworldX + 5,                          gripY + 2
       );
       ctx.stroke();
     });
     ctx.lineCap = 'butt';
-    // Glove fists wrapped around the hilt
+    // Glove fists wrapped around the hilt (sword-side, so unscaled)
     ctx.fillStyle = '#9aa3ad';
     ctx.fillRect(sworldX - 8, gripY - 2, 4, 5);
     ctx.fillRect(sworldX + 4, gripY - 2, 4, 5);
