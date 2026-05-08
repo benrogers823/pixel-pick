@@ -3646,14 +3646,14 @@ const GAMES = [
 
 // ============ GAME UNLOCK SYSTEM ============
 // Belt order thresholds — marble & wheel free, then gaps widen the further along:
-// ships(5) → excaliber(+7=12) → battle(+9=21) → engulf(+12=33)
+// ships(5) → battle(+7=12) → excaliber(+9=21) → engulf(+12=33)
 // → virus(+15=48) → snake(+18=66) → picker(+22=88) → horses(+32=120, hidden bonus)
 const GAME_UNLOCK_THRESHOLDS = {
   marble:    0,
   wheel:     0,
   ships:     5,
-  excaliber: 12,
-  battle:    21,
+  battle:    12,
+  excaliber: 21,
   engulf:    33,
   virus:     48,
   snake:     66,
@@ -3717,7 +3717,7 @@ function checkAndShowNewUnlocks(callback) {
   if (_PP_UNLOCK_ALL) { if (callback) callback(); return; } // dev mode — skip all unlock popups
   const seen  = ppGetSeenUnlocks();
   const total = ppGetCompleted();
-  const BELT_ORDER = ['wheel','marble','ships','excaliber','battle','engulf','virus','snake','picker'];
+  const BELT_ORDER = ['wheel','marble','ships','battle','excaliber','engulf','virus','snake','picker'];
   const queue = BELT_ORDER.filter(id => {
     const t = GAME_UNLOCK_THRESHOLDS[id];
     return t > 0 && total >= t && !seen.has(id);
@@ -4031,7 +4031,7 @@ function getAvailableGames() {
 
 function prepareBeltGames(n) {
   // Fixed belt order: marble first, pixel picker last, others in between
-  const BELT_ORDER = ['wheel','marble','ships','excaliber','battle','engulf','virus','snake','picker'];
+  const BELT_ORDER = ['wheel','marble','ships','battle','excaliber','engulf','virus','snake','picker'];
   const byId = Object.fromEntries(GAMES.map(g => [g.id, g]));
   beltGames = BELT_ORDER.map(id => byId[id]).filter(Boolean);
   // Any game not in the curated list goes in the middle (before picker)
@@ -9911,6 +9911,15 @@ function startMarbleRace() {
 let battleState = null;
 
 const CHAR_TYPES = [
+  // ── New roster first so they appear in every game (chars are picked
+  //    via i % CHAR_TYPES.length, so position 0..5 always see action) ──
+  { name: 'Kung Fu',   bodyColor: '#1f1f1f', trimColor: '#fffaf0', weapon: 'fists',      female: false },
+  { name: 'Tribal',    bodyColor: '#7a3e1d', trimColor: '#f5deb3', weapon: 'spear',      female: false },
+  { name: 'Cowboy',    bodyColor: '#8b4513', trimColor: '#f7e7ce', weapon: 'lasso',      female: false },
+  { name: 'Astronaut', bodyColor: '#dcdcdc', trimColor: '#4682b4', weapon: 'laser',      female: false },
+  { name: 'Pirate',    bodyColor: '#5a1a1a', trimColor: '#f4d03f', weapon: 'cutlass',    female: false },
+  { name: 'Magician',  bodyColor: '#3a006a', trimColor: '#ffd700', weapon: 'wand',       female: false },
+  // ── Original roster ─────────────────────────────────────────────────
   { name: 'Ninja',     bodyColor: '#1a1a1a', trimColor: '#e94560', weapon: 'katana',     female: false },
   { name: 'Swordsman', bodyColor: '#708090', trimColor: '#3498db', weapon: 'broadsword', female: false },
   { name: 'Archer',    bodyColor: '#228B22', trimColor: '#8B4513', weapon: 'bow',        female: false },
@@ -9918,14 +9927,7 @@ const CHAR_TYPES = [
   { name: 'Kunoichi',  bodyColor: '#1a1a1a', trimColor: '#ff69b4', weapon: 'katana',     female: true  },
   { name: 'Valkyrie',  bodyColor: '#708090', trimColor: '#87CEEB', weapon: 'broadsword', female: true  },
   { name: 'Huntress',  bodyColor: '#228B22', trimColor: '#d4af37', weapon: 'bow',        female: true  },
-  { name: 'Shadow',    bodyColor: '#2d1b4e', trimColor: '#dda0dd', weapon: 'dagger',     female: true  },
-  // ── New roster ──────────────────────────────────────────────────────
-  { name: 'Kung Fu',   bodyColor: '#1f1f1f', trimColor: '#fffaf0', weapon: 'fists',      female: false },
-  { name: 'Tribal',    bodyColor: '#7a3e1d', trimColor: '#f5deb3', weapon: 'spear',      female: false },
-  { name: 'Cowboy',    bodyColor: '#8b4513', trimColor: '#f7e7ce', weapon: 'lasso',      female: false },
-  { name: 'Astronaut', bodyColor: '#dcdcdc', trimColor: '#4682b4', weapon: 'laser',      female: false },
-  { name: 'Pirate',    bodyColor: '#5a1a1a', trimColor: '#f4d03f', weapon: 'cutlass',    female: false },
-  { name: 'Magician',  bodyColor: '#3a006a', trimColor: '#ffd700', weapon: 'wand',       female: false }
+  { name: 'Shadow',    bodyColor: '#2d1b4e', trimColor: '#dda0dd', weapon: 'dagger',     female: true  }
 ];
 // Weapon glyphs shown next to each finalist's name during the FINAL DUEL card
 const BATTLE_WEAPON_SYMBOLS = {
